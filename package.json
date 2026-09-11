@@ -20,7 +20,7 @@
     "@fontsource-variable/newsreader": "^5.2.6",
     "@noble/ciphers": "^2.4.0",
     "@noble/curves": "^2.4.0",
-    "lucide": "^0.544.0"
+    "lucide": "^1.43.0"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.10.2",
