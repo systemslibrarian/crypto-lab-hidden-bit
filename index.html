@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <script>
+      // Dark is the only theme. Pin it before first paint, and overwrite any
+      // 'light' a visitor stored back when the header carried a theme toggle.
+      (function () {
+        try {
+          localStorage.setItem('theme', 'dark');
+        } catch (e) {}
+        document.documentElement.setAttribute('data-theme', 'dark');
+      })();
+    </script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Interactive security-game experiments for IND-CPA, IND-CCA2, EUF-CMA, and PRP/PRF switching over real AES, RSA, ElGamal, ECDSA, and Ed25519 primitives."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Hidden Bit — crypto-lab" />
+    <meta
+      property="og:description"
+      content="Run challenger-versus-adversary security games over real browser cryptography and inspect the advantage each strategy earns."
+    />
+    <meta property="og:url" content="https://systemslibrarian.github.io/crypto-lab-hidden-bit/" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Hidden Bit — crypto-lab" />
+    <meta
+      name="twitter:description"
+      content="Run challenger-versus-adversary security games over real browser cryptography and inspect the advantage each strategy earns."
+    />
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>%F0%9F%AA%99</text></svg>"
+    />
+    <title>Hidden Bit — crypto-lab</title>
+  </head>
+  <body>
+    <style>
+      .cl-topbar{
+        --cl-ink:color-mix(in srgb,var(--accent,#35d6bb) 60%,#eafff8);
+        display:flex;align-items:center;justify-content:space-between;gap:1rem;
+        padding:.7rem clamp(.9rem,3vw,2rem);background:#0b1512;
+        border-bottom:1px solid color-mix(in srgb,var(--accent,#35d6bb) 22%,transparent);
+        font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+        position:sticky;top:0;z-index:1000;
+      }
+      .cl-brand{display:flex;align-items:center;gap:.8rem;text-decoration:none}
+      .cl-badge{flex:0 0 auto;display:grid;place-items:center;width:40px;height:40px;border:1.5px solid var(--accent,#35d6bb);border-radius:10px;color:var(--cl-ink);font-weight:700;font-size:.95rem;letter-spacing:.05em}
+      .cl-brand-text{display:flex;flex-direction:column;line-height:1.15}
+      .cl-title{color:#eafff8;font-weight:700;font-size:1.05rem;letter-spacing:.12em}
+      .cl-sub{color:#5e8b80;font-size:.72rem;letter-spacing:.04em}
+      .cl-actions{display:flex;align-items:center;gap:.5rem}
+      .cl-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.5rem .85rem;border-radius:10px;border:1px solid color-mix(in srgb,var(--cl-ink) 70%,transparent);background:transparent;color:var(--cl-ink);cursor:pointer;font:inherit;font-size:.78rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;transition:background .15s,border-color .15s,color .15s}
+      .cl-btn:hover{background:color-mix(in srgb,var(--accent,#35d6bb) 14%,transparent);border-color:var(--accent,#35d6bb);color:#eafff8}
+      .cl-btn svg{width:15px;height:15px}
+      .cl-icon{padding:.5rem .6rem;font-size:.95rem}
+      .cl-skip-link{position:absolute;left:.5rem;top:-3rem;z-index:1001;padding:.55rem 1rem;border-radius:0 0 10px 10px;background:#eafff8;color:#0b1512;font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;font-weight:700;font-size:.8rem;letter-spacing:.04em;text-decoration:none;transition:top .15s ease}
+      .cl-skip-link:focus{top:0;outline:2px solid var(--accent,#35d6bb);outline-offset:2px}
+      body :is(#theme-toggle,#themeToggle,.theme-toggle,.theme-toggle-btn,[data-theme-toggle]){display:none!important}
+      @media(max-width:560px){.cl-sub{display:none}.cl-btn span{display:none}.cl-btn svg{margin:0}}
+      @media(pointer:coarse){.cl-btn,.cl-icon{min-height:44px}}
+      @media(pointer:coarse) and (min-width:380px){.cl-btn,.cl-icon{min-width:44px}}
+    </style>
+    <a class="cl-skip-link" href="#app">Skip to content</a>
+    <header class="cl-topbar" role="banner" aria-label="Crypto Lab">
+      <a class="cl-brand" href="https://crypto-lab.systemslibrarian.dev/" aria-label="Crypto Lab home">
+        <span class="cl-badge">CL</span>
+        <span class="cl-brand-text">
+          <span class="cl-title">CRYPTO LAB</span>
+          <span class="cl-sub">systemslibrarian.dev</span>
+        </span>
+      </a>
+      <nav class="cl-actions" aria-label="Crypto Lab navigation">
+        <a class="cl-btn" href="https://crypto-lab.systemslibrarian.dev/" aria-label="Crypto Lab menu">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          <span>Menu</span>
+        </a>
+        <a class="cl-btn" href="https://github.com/systemslibrarian/crypto-lab-hidden-bit" target="_blank" rel="noopener" aria-label="View this project on GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.7.5.5 5.7.5 12c0 5.1 3.3 9.4 7.9 10.9.6.1.8-.2.8-.6v-2c-3.2.7-3.9-1.4-3.9-1.4-.5-1.3-1.3-1.7-1.3-1.7-1.1-.7 0-.7 0-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.7 1.3 3.4 1 .1-.8.4-1.3.7-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.3 1.2a11.4 11.4 0 0 1 6 0C17.3 5 18.3 5.3 18.3 5.3c.6 1.6.2 2.8.1 3.1.8.8 1.2 1.8 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.3c0 .4.2.7.8.6 4.6-1.5 7.9-5.8 7.9-10.9C23.5 5.7 18.3.5 12 .5z"/></svg>
+          <span>GitHub</span>
+        </a>
+      </nav>
+    </header>
+    <script>
+      (function () {
+        function dedupeBanner() {
+          var bar = document.querySelector('.cl-topbar');
+          if (!bar) return;
+          document.querySelectorAll('[role="banner"]').forEach(function (element) {
+            if (element !== bar) element.setAttribute('role', 'group');
+          });
+          Array.prototype.forEach.call(document.querySelectorAll('header'), function (element) {
+            if (element === bar || element.hasAttribute('role')) return;
+            if (element.closest('main, article, aside, nav, section')) return;
+            element.setAttribute('role', 'group');
+          });
+        }
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', dedupeBanner);
+        else dedupeBanner();
+      })();
+    </script>
+
+    <div id="app" tabindex="-1">
+      <div class="cl-hero">
+        <div class="cl-hero-main">
+          <h1 class="cl-hero-title">Hidden Bit</h1>
+          <p class="cl-hero-sub">Security games · IND-CPA · IND-CCA2 · EUF-CMA</p>
+          <p class="cl-hero-desc">
+            Flip the challenger's hidden bit, hand the adversary its oracle, and watch its advantage climb to one against textbook RSA and flatten against RSA-OAEP over real trials.
+          </p>
+        </div>
+        <aside class="cl-hero-why" aria-label="Why it matters">
+          <span class="cl-hero-why-label">WHY IT MATTERS</span>
+          <p class="cl-hero-why-text">
+            Every "provably secure" claim in this lab is a sentence about a game like this one. Knowing what the game can show — a break — and what it cannot — safety — is the difference between reading a security proof and being reassured by a histogram.
+          </p>
+        </aside>
+      </div>
+
+      <section class="plain-intro" aria-labelledby="intro-title">
+        <div>
+          <p class="section-index">THE IDEA</p>
+          <h2 id="intro-title">A definition you can run</h2>
+        </div>
+        <p>
+          A challenger hides one random bit inside a cryptographic task. An adversary sees only the public rules and tries to name that bit. Repeated wins reveal a usable pattern; repeated guesses reveal only that this particular strategy found none.
+        </p>
+      </section>
+
+      <section id="kat-strip" class="kat-strip" role="status" aria-live="polite" aria-label="Known-answer test status">
+        <span class="kat-mark" aria-hidden="true"><i data-lucide="loader-circle"></i></span>
+        <div>
+          <strong>Checking the instruments</strong>
+          <span id="kat-summary">Running 3 published vector cases before the lab opens.</span>
+        </div>
+      </section>
+
+      <nav class="exhibit-nav" aria-label="Security game exhibits">
+        <div class="tab-list" role="tablist" aria-label="Hidden Bit exhibits">
+          <button class="tab-btn" role="tab" id="tab-cpa" aria-selected="true" aria-controls="panel-cpa" data-panel="cpa">
+            <span>01</span> Hidden-bit game
+          </button>
+          <button class="tab-btn" role="tab" id="tab-cca" aria-selected="false" aria-controls="panel-cca" data-panel="cca" tabindex="-1">
+            <span>02</span> CCA2 oracle
+          </button>
+          <button class="tab-btn" role="tab" id="tab-forgery" aria-selected="false" aria-controls="panel-forgery" data-panel="forgery" tabindex="-1">
+            <span>03</span> Signature oracle
+          </button>
+          <button class="tab-btn" role="tab" id="tab-switching" aria-selected="false" aria-controls="panel-switching" data-panel="switching" tabindex="-1">
+            <span>04</span> PRP / PRF
+          </button>
+          <button class="tab-btn" role="tab" id="tab-reduction" aria-selected="false" aria-controls="panel-reduction" data-panel="reduction" tabindex="-1">
+            <span>05</span> DDH reduction
+          </button>
+        </div>
+      </nav>
+
+      <main>
+        <section id="panel-cpa" class="experiment-panel" role="tabpanel" aria-labelledby="tab-cpa"></section>
+        <section id="panel-cca" class="experiment-panel" role="tabpanel" aria-labelledby="tab-cca" hidden></section>
+        <section id="panel-forgery" class="experiment-panel" role="tabpanel" aria-labelledby="tab-forgery" hidden></section>
+        <section id="panel-switching" class="experiment-panel" role="tabpanel" aria-labelledby="tab-switching" hidden></section>
+        <section id="panel-reduction" class="experiment-panel" role="tabpanel" aria-labelledby="tab-reduction" hidden></section>
+      </main>
+
+      <section class="scope-band" aria-labelledby="scope-title">
+        <div class="scope-heading">
+          <p class="section-index">BOUNDARIES</p>
+          <h2 id="scope-title">What this lab is, and is not</h2>
+          <p>Real browser cryptography inside faithfully sampled games. Not production crypto; session keys stay in memory and the interface deliberately exposes internals for teaching.</p>
+        </div>
+        <div class="scope-columns">
+          <div>
+            <h3>What is real</h3>
+            <p>AES CBC/CTR/GCM and RSA OAEP/PSS use WebCrypto. AES-ECB, ristretto255 ElGamal, secp256k1 ECDSA, and Ed25519 use audited Noble packages. The challenger bit always comes from <code>crypto.getRandomValues</code>.</p>
+          </div>
+          <div>
+            <h3>What is idealized</h3>
+            <p>The PRP and PRF are mathematical ideal oracles, sampled lazily exactly as the switching game defines them. Trial counts are capped at 5,000; a sample is not a proof.</p>
+          </div>
+          <div>
+            <h3>What this is not</h3>
+            <p>No proof assistant or symbolic analysis; see <a href="https://systemslibrarian.github.io/crypto-lab-protocol-checker/">Protocol Checker</a>. No CCA1, NM-CPA, visitor-authored code, TLS or Signal claims, or deployed-system verdicts.</p>
+          </div>
+          <div>
+            <h3>Where KEMs fit</h3>
+            <p>KEM notions stay outside this game board; see <a href="https://systemslibrarian.github.io/crypto-lab-kem-trap/">KEM Trap</a> for ML-KEM. No result label uses the word “secure”; it reports an attack or no advantage from named adversaries.</p>
+          </div>
+        </div>
+        <details class="definition-table">
+          <summary>Nearby definitions intentionally left out</summary>
+          <div class="table-scroll" role="region" aria-label="Out-of-scope definition comparison" tabindex="0">
+            <table>
+              <thead><tr><th>Definition</th><th>Extra power</th><th>Why it is not an exhibit here</th></tr></thead>
+              <tbody>
+                <tr><td>CCA1</td><td>Decrypt before, not after, the challenge</td><td>CCA2 makes the sharper oracle boundary visible.</td></tr>
+                <tr><td>NM-CPA</td><td>Forbids useful ciphertext relations</td><td>The ElGamal CCA act shows malleability without claiming the full equivalence story.</td></tr>
+                <tr><td>KEM security</td><td>Challenges an encapsulated key</td><td>That interface belongs in the linked KEM lab.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+      </section>
+
+      <details class="sources">
+        <summary>Definitions and primary sources</summary>
+        <p>
+          Goldwasser–Micali (1984) · Rackoff–Simon (1991) · Bellare–Desai–Pointcheval–Rogaway (1998) · Goldwasser–Micali–Rivest (1988) · Bellare–Rogaway (2006) · Shoup (2004) · FIPS 197 · RFC 6979 · RFC 8032.
+        </p>
+      </details>
+
+      <footer class="scripture-footer">
+        <p class="footer-links">
+          Related demos:
+          <a href="https://systemslibrarian.github.io/crypto-lab-rsa-forge/">RSA Forge</a> ·
+          <a href="https://systemslibrarian.github.io/crypto-lab-ecdsa-forge/">ECDSA Forge</a> ·
+          <a href="https://systemslibrarian.github.io/crypto-lab-kem-trap/">KEM Trap</a>
+        </p>
+        <p>So whether you eat or drink or whatever you do, do it all for the glory of God. — 1 Corinthians 10:31</p>
+      </footer>
+    </div>
+
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>
