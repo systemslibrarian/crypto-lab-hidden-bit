@@ -25,7 +25,7 @@
   "devDependencies": {
     "@axe-core/playwright": "^4.10.2",
     "@playwright/test": "^1.61.1",
-    "@types/node": "^24.3.1",
+    "@types/node": "^26.5.0",
     "@vitest/coverage-v8": "^5.0.0",
     "typescript": "^5.9.2",
     "vite": "^7.1.5",
