@@ -45,7 +45,7 @@ function markup(): string {
           <li role="listitem" data-step="2">Receive genuine signature bytes from the named primitive.</li>
           <li role="listitem" data-step="3">Submit a candidate the oracle did not return.</li>
         </ol>
-        <dl id="forgery-values" class="value-list"><div class="value-row"><dt>State</dt><dd>Waiting for a candidate.</dd></div></dl>
+        <dl id="forgery-values" class="value-list" data-claim="forgery-transcript"><div class="value-row"><dt>State</dt><dd>Waiting for a candidate.</dd></div></dl>
       </section>
       <section class="result-block">
         <h3>Verifier outcomes</h3>

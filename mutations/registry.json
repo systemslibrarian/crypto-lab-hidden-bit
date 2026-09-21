@@ -1,24 +1,31 @@
 {
   "$comment": [
-    "§4.1c mutation coverage for every rendered verdict in this lab.",
-    "One entry per data-verdict marker. A mutation counts as a KILL only when the",
-    "unmutated baseline PASSED in the same run, the failure is that verdict's OWN",
-    "assertion (not a build error, a blank page, a timeout, or the whole suite",
-    "going red), and the run served the mutated code. mutations/run.mjs enforces",
-    "all three; it runs with CI=1 so playwright.config.ts's",
-    "reuseExistingServer: !process.env.CI is false and no stale server on port",
-    "4667 can answer for an unmutated checkout.",
-    "e2e/verdicts.spec.ts fails if the page renders a marker this file does not",
-    "cover, and fails if this file claims a marker the page never renders. A",
-    "marker reachable only on a failure path carries rendersOnlyUnderMutation:",
-    "true, and the spec then requires it to be ABSENT from the healthy page, so",
-    "the flag cannot be used to hide a verdict that really does render."
+    "§4.1c mutation coverage for every rendered VERDICT and every rendered",
+    "MEASUREMENT in this lab. One entry per marker, of either family: a",
+    "data-verdict marker says what happened, a data-claim marker is a number the",
+    "reader is invited to check, and a number painted with no mutation behind it",
+    "is exactly as unchecked as a verdict painted with none.",
+    "A mutation counts as a KILL only when the unmutated baseline PASSED in the",
+    "same run, the failure is that marker's OWN assertion (not a build error, a",
+    "blank page, a timeout, or the whole suite going red), and the run served the",
+    "mutated code. mutations/run.mjs enforces all three; it runs with CI=1 so",
+    "playwright.config.ts's reuseExistingServer: !process.env.CI is false and no",
+    "stale server on port 4667 can answer for an unmutated checkout.",
+    "e2e/verdicts.spec.ts fails if the page renders a marker of either family",
+    "that this file does not cover, fails if this file claims a marker the page",
+    "never renders, and fails if a recorded kill's test does not go through the",
+    "shared helpers (expectVerdict / expectNoVerdict / readClaim) — a spec that",
+    "merely mentions a marker id is not a spec that asserts it. A marker",
+    "reachable only on a failure path carries rendersOnlyUnderMutation: true, and",
+    "the spec then requires it to be ABSENT from the healthy page, so the flag",
+    "cannot be used to hide a verdict that really does render."
   ],
   "port": 4667,
   "mutations": [
     {
       "id": "kat-vector",
       "marker": "kat",
+      "family": "verdict",
       "file": "src/kats.ts",
       "find": "const aesExpected = '69c4e0d86a7b0430d8cdb78070b4c55a';",
       "replace": "const aesExpected = '00000000000000000000000000000000';",
@@ -30,6 +37,7 @@
     {
       "id": "cpa-verdict-never-alarms",
       "marker": "cpa",
+      "family": "verdict",
       "file": "src/ui/cpa.ts",
       "find": "      } else if (estimate.low > 0) {",
       "replace": "      } else if (false) {",
@@ -40,16 +48,18 @@
     {
       "id": "negative-title-pinned",
       "marker": "cpa-negative",
+      "family": "verdict",
       "file": "src/ui/cpa.ts",
-      "find": "        flatlines.has('random') && flatlines.has('reencrypt')",
-      "replace": "        false",
+      "find": "      const promoted = flatlines.has('random') && flatlines.has('reencrypt');",
+      "replace": "      const promoted = false;",
       "spec": "e2e/claims.spec.ts",
       "grep": "negative claim survives green KATs and two misleading flat lines",
-      "why": "Pins the negative-fixture headline to its placeholder so two genuine flat lines no longer promote it to the 'AND THE SCHEME IS BROKEN' form."
+      "why": "Pins the negative-fixture headline AND its tone to the placeholder state, so two genuine flat lines no longer promote it to the 'AND THE SCHEME IS BROKEN' form."
     },
     {
       "id": "engine-init-fails",
       "marker": "cpa-init",
+      "family": "verdict",
       "file": "src/ui/cpa.ts",
       "find": "    const schemes = await createSchemeRegistry();",
       "replace": "    const schemes = await createSchemeRegistry();\n    throw new Error('mutation: forced scheme-registry failure');",
@@ -62,6 +72,7 @@
     {
       "id": "challenge-refusal-unreported",
       "marker": "cca-boundary",
+      "family": "verdict",
       "file": "src/game/cca.ts",
       "find": "        exactChallengeRejected = error instanceof ExactChallengeError;",
       "replace": "        exactChallengeRejected = false;",
@@ -73,6 +84,7 @@
     {
       "id": "cca-verdict-never-alarms",
       "marker": "cca",
+      "family": "verdict",
       "file": "src/ui/cca.ts",
       "find": "    if (result.interval[0] > 0) {",
       "replace": "    if (false) {",
@@ -83,6 +95,7 @@
     {
       "id": "forgery-verdict-inverted",
       "marker": "forgery",
+      "family": "verdict",
       "file": "src/ui/forgery.ts",
       "find": "      if (result.alarm) {",
       "replace": "      if (!result.alarm) {",
@@ -93,6 +106,7 @@
     {
       "id": "plain-verifier-enforces-low-s",
       "marker": "forgery-plain",
+      "family": "verdict",
       "file": "src/schemes/ecdsa.ts",
       "find": "    prehash: true,\n    lowS: false,\n    format: 'compact',\n  });",
       "replace": "    prehash: true,\n    lowS: true,\n    format: 'compact',\n  });",
@@ -103,6 +117,7 @@
     {
       "id": "low-s-verifier-admits-high-s",
       "marker": "forgery-lows",
+      "family": "verdict",
       "file": "src/schemes/ecdsa.ts",
       "find": "  return secp256k1.verify(signature, message, publicKey);",
       "replace": "  return secp256k1.verify(signature, message, publicKey, { lowS: false });",
@@ -113,6 +128,7 @@
     {
       "id": "switching-bound-check-pinned",
       "marker": "switching",
+      "family": "verdict",
       "file": "src/prf/switching.ts",
       "find": "    withinTolerance: estimate.estimate <= bound + tolerance,",
       "replace": "    withinTolerance: false,",
@@ -123,12 +139,179 @@
     {
       "id": "reduction-relation-pinned",
       "marker": "reduction",
+      "family": "verdict",
       "file": "src/reduction/ddh.ts",
       "find": "    relationHolds: Math.abs(bAdvantage - expectedB) <= relationTolerance,",
       "replace": "    relationHolds: false,",
       "spec": "e2e/verdicts.spec.ts",
       "grep": "reduction verdict follows the measured factor",
       "why": "Severs the reduction verdict from the measured Adv(B) vs Adv(A)/2 comparison, so it reports RELATION OUTSIDE while the displayed numbers agree."
+    },
+    {
+      "id": "coin-shows-the-complement",
+      "marker": "cpa-coin",
+      "family": "claim",
+      "file": "src/ui/cpa.ts",
+      "find": "        coin.textContent = String(next.trace.bit);",
+      "replace": "        coin.textContent = String(1 - next.trace.bit);",
+      "spec": "e2e/verdicts.spec.ts",
+      "grep": "the coin claim shows the bit the transcript opened",
+      "why": "Paints the opposite face on the opened coin, so the coin and the transcript line that names the same bit disagree."
+    },
+    {
+      "id": "advantage-text-shows-the-interval-floor",
+      "marker": "cpa-advantage",
+      "family": "claim",
+      "file": "src/ui/cpa.ts",
+      "find": "      advantageElement.textContent = formatNumber(estimate.estimate);",
+      "replace": "      advantageElement.textContent = formatNumber(estimate.low);",
+      "spec": "e2e/verdicts.spec.ts",
+      "grep": "the CPA advantage claim equals the recomputed Wilson estimate",
+      "why": "Renders the interval floor where the point estimate belongs, so the readable number stops being the Wilson estimate of the rendered ledger."
+    },
+    {
+      "id": "interval-low-shows-the-high",
+      "marker": "cpa-interval",
+      "family": "claim",
+      "file": "src/ui/cpa.ts",
+      "find": "      intervalElement.textContent = `Wilson 95% interval: ${formatNumber(estimate.low)} to ${formatNumber(estimate.high)}`;",
+      "replace": "      intervalElement.textContent = `Wilson 95% interval: ${formatNumber(estimate.high)} to ${formatNumber(estimate.high)}`;",
+      "spec": "e2e/verdicts.spec.ts",
+      "grep": "the CPA interval claim equals the recomputed Wilson interval",
+      "why": "Collapses the interval onto its upper end, so the displayed width no longer reports the sampling uncertainty it claims to."
+    },
+    {
+      "id": "ledger-wins-counts-the-losses",
+      "marker": "cpa-ledger",
+      "family": "claim",
+      "file": "src/ui/cpa.ts",
+      "find": "      query<HTMLElement>('#cpa-wins', panel).textContent = String(next.wins);",
+      "replace": "      query<HTMLElement>('#cpa-wins', panel).textContent = String(next.trials - next.wins);",
+      "spec": "e2e/verdicts.spec.ts",
+      "grep": "the CPA ledger claim balances against its own trial count",
+      "why": "Puts the complement in the wins tile, so wins + losses + errors stops equalling the trials the same ledger reports."
+    },
+    {
+      "id": "win-bar-shows-the-loss-share",
+      "marker": "cpa-rates",
+      "family": "claim",
+      "file": "src/ui/cpa.ts",
+      "find": "      query<HTMLElement>('#cpa-win-rate', panel).textContent = `${Math.round(winRate)}%`;",
+      "replace": "      query<HTMLElement>('#cpa-win-rate', panel).textContent = `${Math.round(lossRate)}%`;",
+      "spec": "e2e/verdicts.spec.ts",
+      "grep": "the CPA rate claim equals the win and loss shares of the ledger",
+      "why": "Labels the win bar with the loss share, so the histogram disagrees with the ledger it summarises."
+    },
+    {
+      "id": "cca-ledger-wins-counts-the-losses",
+      "marker": "cca-ledger",
+      "family": "claim",
+      "file": "src/ui/cca.ts",
+      "find": "    query<HTMLElement>('#cca-wins', panel).textContent = String(result.wins);",
+      "replace": "    query<HTMLElement>('#cca-wins', panel).textContent = String(result.losses);",
+      "spec": "e2e/verdicts.spec.ts",
+      "grep": "the CCA2 ledger claim balances against its own trial count",
+      "why": "Puts the loss count in the wins tile, so the CCA2 ledger stops balancing against its own trial count."
+    },
+    {
+      "id": "cca-advantage-value-halved",
+      "marker": "cca-advantage",
+      "family": "claim",
+      "file": "src/ui/cca.ts",
+      "find": "    advantage.dataset.value = String(result.advantage);",
+      "replace": "    advantage.dataset.value = String(result.advantage / 2);",
+      "spec": "e2e/verdicts.spec.ts",
+      "grep": "the CCA2 advantage claim equals the recomputed Wilson estimate",
+      "why": "Halves the machine-readable advantage, so the value a tool reads is no longer the value a reader sees, nor the estimate of the rendered ledger."
+    },
+    {
+      "id": "cca-interval-low-shows-the-high",
+      "marker": "cca-interval",
+      "family": "claim",
+      "file": "src/ui/cca.ts",
+      "find": "    query<HTMLElement>('#cca-interval', panel).textContent = `95% interval: ${formatNumber(result.interval[0])} to ${formatNumber(result.interval[1])}`;",
+      "replace": "    query<HTMLElement>('#cca-interval', panel).textContent = `95% interval: ${formatNumber(result.interval[1])} to ${formatNumber(result.interval[1])}`;",
+      "spec": "e2e/verdicts.spec.ts",
+      "grep": "the CCA2 interval claim equals the recomputed Wilson interval",
+      "why": "Collapses the CCA2 interval onto its upper end, so its displayed width no longer reports the sampling uncertainty it claims to."
+    },
+    {
+      "id": "transcript-values-truncated",
+      "marker": "forgery-transcript",
+      "family": "claim",
+      "file": "src/ui/forgery.ts",
+      "find": "`<div class=\"value-row\"><dt>${escapeHtml(key)}</dt><dd data-field=\"${escapeHtml(key)}\">${escapeHtml(value)}</dd></div>`",
+      "replace": "`<div class=\"value-row\"><dt>${escapeHtml(key)}</dt><dd data-field=\"${escapeHtml(key)}\">${escapeHtml(value).slice(1)}</dd></div>`",
+      "spec": "e2e/claims.spec.ts",
+      "grep": "ECDSA values reconstruct the accepted high-S twin",
+      "why": "Drops the leading digit of every transcript value, so the numbers the reader is invited to check no longer reconstruct the curve order or the (r, n - s) twin."
+    },
+    {
+      "id": "row-bound-doubled",
+      "marker": "switch-rows",
+      "family": "claim",
+      "file": "src/ui/switching.ts",
+      "find": "<td>${formatNumber(point.bound, 6)}</td>",
+      "replace": "<td>${formatNumber(point.bound * 2, 6)}</td>",
+      "spec": "e2e/verdicts.spec.ts",
+      "grep": "the switching rows claim matches the bound recomputed at the chosen n",
+      "why": "Doubles the rendered switching bound, so the column stops being q(q - 1) / 2^(n + 1) at the n the control is set to."
+    },
+    {
+      "id": "chart-label-ends-where-it-starts",
+      "marker": "switch-chart",
+      "family": "claim",
+      "file": "src/ui/switching.ts",
+      "find": "svg.setAttribute('aria-label', `Measured PRP/PRF advantage and switching bound for ${points.length} query counts from ${points[0]!.queries} to ${points.at(-1)!.queries}.`);",
+      "replace": "svg.setAttribute('aria-label', `Measured PRP/PRF advantage and switching bound for ${points.length} query counts from ${points[0]!.queries} to ${points[0]!.queries}.`);",
+      "spec": "e2e/verdicts.spec.ts",
+      "grep": "the switching chart claim spans the same points as the table",
+      "why": "Makes the chart's only screen-reader rendering claim a span it did not measure, while the table beside it still shows the real one."
+    },
+    {
+      "id": "scaled-bound-drops-the-minus-one",
+      "marker": "switch-scaled",
+      "family": "claim",
+      "file": "src/prf/switching.ts",
+      "find": "  const numerator = BigInt(queries) * BigInt(queries - 1);",
+      "replace": "  const numerator = BigInt(queries) * BigInt(queries);",
+      "spec": "e2e/verdicts.spec.ts",
+      "grep": "the scaled bound claim equals",
+      "why": "Turns q(q - 1) into q^2 in the n = 128 rescaling, so the formula the page prints beside the curve is not the formula it names.",
+      "scope": "--grep is a regex, so this record names a metacharacter-free substring of the test title rather than the whole title, which contains q(q - 1)."
+    },
+    {
+      "id": "reduction-a-text-drifts-from-its-value",
+      "marker": "reduction-a",
+      "family": "claim",
+      "file": "src/ui/reduction.ts",
+      "find": "      a.textContent = formatNumber(result.aAdvantage);",
+      "replace": "      a.textContent = formatNumber(result.aAdvantage + 0.25);",
+      "spec": "e2e/verdicts.spec.ts",
+      "grep": "the reduction A claim renders one measurement two ways",
+      "why": "Separates the readable A advantage from the machine-readable one, so the two renderings of one measurement stop agreeing."
+    },
+    {
+      "id": "reduction-b-value-drifts-from-its-text",
+      "marker": "reduction-b",
+      "family": "claim",
+      "file": "src/ui/reduction.ts",
+      "find": "      b.dataset.value = String(result.bAdvantage);",
+      "replace": "      b.dataset.value = String(result.bAdvantage + 0.25);",
+      "spec": "e2e/verdicts.spec.ts",
+      "grep": "the reduction B claim renders one measurement two ways",
+      "why": "Separates the machine-readable B advantage from the readable one, in the other direction from the A mutation."
+    },
+    {
+      "id": "relation-factor-is-not-half",
+      "marker": "reduction-relation",
+      "family": "claim",
+      "file": "src/ui/reduction.ts",
+      "find": "      query<HTMLElement>('#reduction-expected', panel).textContent = formatNumber(result.expectedB);",
+      "replace": "      query<HTMLElement>('#reduction-expected', panel).textContent = formatNumber(result.expectedB + 0.25);",
+      "spec": "e2e/verdicts.spec.ts",
+      "grep": "the reduction relation claim is half the measured A advantage",
+      "why": "Breaks the displayed Adv(A) / 2 factor away from the displayed Adv(A), which is the one relation this exhibit exists to show."
     }
   ]
 }
