@@ -5,3 +5,9 @@ test-results/
 playwright-report/
 *.tsbuildinfo
 .DS_Store
+
+# Local, untracked working copy of the catalog master template (audits/kickoff.md).
+# A committed copy ages silently into a second, wrong standard.
+template.md
+_MASTER-TEMPLATE.md
+CRYPTO-LAB-TEMPLATE*.md

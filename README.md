@@ -74,7 +74,7 @@ npx playwright install --with-deps chromium
 npm run test:a11y
 ```
 
-The unit gate contains **77 tests** in 11 files. It includes **3 published known-answer cases**: FIPS 197 AES-128, RFC 6979 P-256 ECDSA, and RFC 8032 Ed25519. The enforced baseline is 90% statements, 80% branches, 90% functions, and 90% lines; the final measured result is 93.62%, 83.4%, 93.13%, and 96.66%, respectively.
+The unit gate contains **77 tests** in 11 files. It includes **3 published known-answer cases**: FIPS 197 AES-128, RFC 6979 P-256 ECDSA, and RFC 8032 Ed25519. Coverage is measured over the cryptographic and game logic only — `src/game/`, `src/schemes/`, `src/adversaries/`, `src/prf/`, `src/reduction/` and `src/kats.ts` — because that is the code whose correctness the claims rest on; the presentation layer (`src/ui/`, `src/main.ts`) is excluded from the measurement and is covered instead by the 12 browser tests below. Over that scope the enforced baseline is 90% statements, 80% branches, 90% functions, and 90% lines; the final measured result is 93.62%, 83.4%, 93.13%, and 96.66%, respectively.
 
 The Playwright gate contains **12 browser tests**: 10 truth and workflow claims, including independent raw-RSA modular exponentiation and secp256k1 point arithmetic, plus 2 WCAG state walks. It builds before serving, drives real controls at desktop and 380 px, requires zero WCAG 2.1 A/AA violations, inspects axe's incomplete bucket, and independently checks text contrast, control-boundary contrast, reduced motion, reflow, focus targets, scroll regions, and hidden states.
 

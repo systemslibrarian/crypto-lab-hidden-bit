@@ -1,6 +1,6 @@
 # Hidden Bit — build brief for `crypto-lab-hidden-bit`
 
-Save this file as `brief.md` at the root of `crypto-lab-hidden-bit`. The binding spec is the copy of `_MASTER-TEMPLATE.md` in this repo (status 2026-08-02); this brief supplies only the demo-specific facts. Where the two touch, the template wins; where the template and the catalog `CLAUDE.md` touch, `CLAUDE.md` wins. If `audits/kickoff.md` is also present in this repo, it may be used instead of the prompt below — it reads `./brief.md` itself.
+Save this file as `brief.md` at the root of `crypto-lab-hidden-bit`. The binding spec is `../crypto-lab/audits/_MASTER-TEMPLATE.md` in the catalog repo; any copy of it sitting in this repo is a local, gitignored working convenience and loses to the catalog original wherever the two disagree. This brief supplies only the demo-specific facts. Where the two touch, the template wins; where the template and the catalog `CLAUDE.md` touch, `CLAUDE.md` wins. If `audits/kickoff.md` is also present in this repo, it may be used instead of the prompt below — it reads `./brief.md` itself.
 
 ## Kickoff prompt — paste this, with the template in the repo
 
