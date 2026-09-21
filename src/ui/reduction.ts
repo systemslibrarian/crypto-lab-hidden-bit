@@ -57,7 +57,7 @@ function markup(): string {
         </dl>
       </section>
     </div>
-    <div id="reduction-verdict" class="verdict" data-tone="neutral" role="status" aria-live="polite">
+    <div id="reduction-verdict" class="verdict" data-verdict="reduction" data-tone="neutral" role="status" aria-live="polite">
       <i data-lucide="circle-dot"></i><div><strong>READY</strong><p>Run B to compare its measured DDH edge with half of A's measured IND-CPA edge.</p></div>
     </div>
     <details class="guard-rails">

@@ -47,13 +47,13 @@ function markup(): string {
           <li role="listitem" data-step="2">On a repeated output, guess ideal function.</li>
           <li role="listitem" data-step="3">With no collision, guess ideal permutation.</li>
         </ol>
-        <div class="verdict" data-tone="neutral">
+        <div class="formula-note">
           <i data-lucide="flask-conical"></i><div><strong>AT n = 128</strong><p id="switch-scaled">For q = 48, the switching bound is 2256 / 2^129.</p></div>
         </div>
       </section>
       <section class="result-block">
         <h3>Bound check</h3>
-        <div id="switch-verdict" class="verdict" data-tone="neutral">
+        <div id="switch-verdict" class="verdict" data-verdict="switching" data-tone="neutral">
           <i data-lucide="circle-dot"></i><div><strong>READY</strong><p>Every measured point will be checked against bound plus its displayed sampling tolerance.</p></div>
         </div>
         <p>The union bound can be loose; a measurement above it beyond sampling tolerance indicates a sampler or accounting defect, not a cryptanalytic discovery.</p>

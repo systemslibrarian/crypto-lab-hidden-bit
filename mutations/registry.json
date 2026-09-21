@@ -1,0 +1,134 @@
+{
+  "$comment": [
+    "§4.1c mutation coverage for every rendered verdict in this lab.",
+    "One entry per data-verdict marker. A mutation counts as a KILL only when the",
+    "unmutated baseline PASSED in the same run, the failure is that verdict's OWN",
+    "assertion (not a build error, a blank page, a timeout, or the whole suite",
+    "going red), and the run served the mutated code. mutations/run.mjs enforces",
+    "all three; it runs with CI=1 so playwright.config.ts's",
+    "reuseExistingServer: !process.env.CI is false and no stale server on port",
+    "4667 can answer for an unmutated checkout.",
+    "e2e/verdicts.spec.ts fails if the page renders a marker this file does not",
+    "cover, and fails if this file claims a marker the page never renders. A",
+    "marker reachable only on a failure path carries rendersOnlyUnderMutation:",
+    "true, and the spec then requires it to be ABSENT from the healthy page, so",
+    "the flag cannot be used to hide a verdict that really does render."
+  ],
+  "port": 4667,
+  "mutations": [
+    {
+      "id": "kat-vector",
+      "marker": "kat",
+      "file": "src/kats.ts",
+      "find": "const aesExpected = '69c4e0d86a7b0430d8cdb78070b4c55a';",
+      "replace": "const aesExpected = '00000000000000000000000000000000';",
+      "spec": "e2e/verdicts.spec.ts",
+      "grep": "KAT strip verdict follows the measured vectors",
+      "why": "Corrupts the FIPS 197 C.1 expected vector so one of three KATs fails. The strip must then say 'Known-answer mismatch' with data-state='fail' and 2/3.",
+      "scope": "Also reddens claims.spec.ts's negative-claim test, which legitimately asserts green KATs; the kill is recorded from the marker's own test via --grep."
+    },
+    {
+      "id": "cpa-verdict-never-alarms",
+      "marker": "cpa",
+      "file": "src/ui/cpa.ts",
+      "find": "      } else if (estimate.low > 0) {",
+      "replace": "      } else if (false) {",
+      "spec": "e2e/claims.spec.ts",
+      "grep": "headline advantage and ledger are independently consistent",
+      "why": "Severs the IND-CPA verdict from the measured Wilson interval. Textbook RSA with re-encrypt wins every trial, so the verdict must read BROKEN: ADVANTAGE."
+    },
+    {
+      "id": "negative-title-pinned",
+      "marker": "cpa-negative",
+      "file": "src/ui/cpa.ts",
+      "find": "        flatlines.has('random') && flatlines.has('reencrypt')",
+      "replace": "        false",
+      "spec": "e2e/claims.spec.ts",
+      "grep": "negative claim survives green KATs and two misleading flat lines",
+      "why": "Pins the negative-fixture headline to its placeholder so two genuine flat lines no longer promote it to the 'AND THE SCHEME IS BROKEN' form."
+    },
+    {
+      "id": "engine-init-fails",
+      "marker": "cpa-init",
+      "file": "src/ui/cpa.ts",
+      "find": "    const schemes = await createSchemeRegistry();",
+      "replace": "    const schemes = await createSchemeRegistry();\n    throw new Error('mutation: forced scheme-registry failure');",
+      "spec": "e2e/verdicts.spec.ts",
+      "grep": "healthy boot renders no engine-failure verdict",
+      "rendersOnlyUnderMutation": true,
+      "why": "Forces the catch branch that paints the engine-failure verdict, proving that banner is reachable and that the healthy-boot assertion can see it.",
+      "scope": "Exhibit 01 never initializes, so this mutation is panel-global by construction; the marker's own test races the two outcomes so the failure is an assertion, not a timeout."
+    },
+    {
+      "id": "challenge-refusal-unreported",
+      "marker": "cca-boundary",
+      "file": "src/game/cca.ts",
+      "find": "        exactChallengeRejected = error instanceof ExactChallengeError;",
+      "replace": "        exactChallengeRejected = false;",
+      "occurrences": 2,
+      "spec": "e2e/claims.spec.ts",
+      "grep": "exact CCA challenge is refused and hidden panels stay unpainted",
+      "why": "Makes the oracle-boundary verdict stop reporting the real byte-comparison refusal; it must flip to BOUNDARY FAILURE."
+    },
+    {
+      "id": "cca-verdict-never-alarms",
+      "marker": "cca",
+      "file": "src/ui/cca.ts",
+      "find": "    if (result.interval[0] > 0) {",
+      "replace": "    if (false) {",
+      "spec": "e2e/verdicts.spec.ts",
+      "grep": "CCA2 verdict follows the measured interval",
+      "why": "Severs the CCA2 verdict from its measured interval. ElGamal malleation wins every trial, so the alarm branch is the only correct one."
+    },
+    {
+      "id": "forgery-verdict-inverted",
+      "marker": "forgery",
+      "file": "src/ui/forgery.ts",
+      "find": "      if (result.alarm) {",
+      "replace": "      if (!result.alarm) {",
+      "spec": "e2e/verdicts.spec.ts",
+      "grep": "forgery verdict follows the real verifier outcome",
+      "why": "Inverts the EUF-CMA verdict's tone branch, so a real textbook-RSA forgery renders as a pass and a refused RSA-PSS alteration renders as an alarm."
+    },
+    {
+      "id": "plain-verifier-enforces-low-s",
+      "marker": "forgery-plain",
+      "file": "src/schemes/ecdsa.ts",
+      "find": "    prehash: true,\n    lowS: false,\n    format: 'compact',\n  });",
+      "replace": "    prehash: true,\n    lowS: true,\n    format: 'compact',\n  });",
+      "spec": "e2e/claims.spec.ts",
+      "grep": "ECDSA values reconstruct the accepted high-S twin",
+      "why": "This is the mutation that exposed the original defect: the plain verifier now REJECTS the (r, n - s) twin, collapsing exhibit 03's whole point. Before this lane the banner was a literal and all ten claims stayed green while the page rendered 'PLAIN VERIFIER: ACCEPTED' beside a computed 'rejected'."
+    },
+    {
+      "id": "low-s-verifier-admits-high-s",
+      "marker": "forgery-lows",
+      "file": "src/schemes/ecdsa.ts",
+      "find": "  return secp256k1.verify(signature, message, publicKey);",
+      "replace": "  return secp256k1.verify(signature, message, publicKey, { lowS: false });",
+      "spec": "e2e/claims.spec.ts",
+      "grep": "ECDSA values reconstruct the accepted high-S twin",
+      "why": "Drops canonical low-S enforcement, so the 'library default' verifier accepts a high-S signature. The banner must follow it to ACCEPTED; the test decides the expected outcome from arithmetic on the displayed s, not from the page."
+    },
+    {
+      "id": "switching-bound-check-pinned",
+      "marker": "switching",
+      "file": "src/prf/switching.ts",
+      "find": "    withinTolerance: estimate.estimate <= bound + tolerance,",
+      "replace": "    withinTolerance: false,",
+      "spec": "e2e/verdicts.spec.ts",
+      "grep": "switching verdict follows the measured rows",
+      "why": "Severs the sampler verdict from the measured rows, so the banner cries SAMPLER CHECK FAILED while every displayed row sits inside bound + tolerance."
+    },
+    {
+      "id": "reduction-relation-pinned",
+      "marker": "reduction",
+      "file": "src/reduction/ddh.ts",
+      "find": "    relationHolds: Math.abs(bAdvantage - expectedB) <= relationTolerance,",
+      "replace": "    relationHolds: false,",
+      "spec": "e2e/verdicts.spec.ts",
+      "grep": "reduction verdict follows the measured factor",
+      "why": "Severs the reduction verdict from the measured Adv(B) vs Adv(A)/2 comparison, so it reports RELATION OUTSIDE while the displayed numbers agree."
+    }
+  ]
+}

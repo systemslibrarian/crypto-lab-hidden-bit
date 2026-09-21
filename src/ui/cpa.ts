@@ -104,7 +104,7 @@ function panelMarkup(schemes: Map<string, CpaScheme>): string {
           <div id="cpa-advantage-fill" class="advantage-fill"></div>
         </div>
         <div class="advantage-scale"><span>0 · no measured edge</span><span>1 · every guess right</span></div>
-        <div id="cpa-verdict" class="verdict" data-tone="neutral" role="status" aria-live="polite">
+        <div id="cpa-verdict" class="verdict" data-verdict="cpa" data-tone="neutral" role="status" aria-live="polite">
           <i data-lucide="circle-dot"></i><div><strong>READY FOR AN ADVERSARY</strong><p>A verdict belongs to one named strategy, scheme, and run.</p></div>
         </div>
       </section>
@@ -125,7 +125,7 @@ function panelMarkup(schemes: Map<string, CpaScheme>): string {
     </div>
 
     <section id="cbc-negative" class="negative-fixture" data-testid="cbc-negative" hidden>
-      <h3 id="cbc-negative-title">A flat line is not a verdict</h3>
+      <h3 id="cbc-negative-title" data-verdict="cpa-negative">A flat line is not a verdict</h3>
       <p><strong>A measured advantage near zero shows that these adversaries failed; it is not evidence that the scheme is IND-CPA secure.</strong> Chained-IV CBC is broken even when random guessing and re-encryption both miss the defect.</p>
       <div class="fixture-checks" role="group" aria-label="Negative claim evidence">
         <span id="fixture-random" class="fixture-chip">Random guess run</span>
@@ -360,7 +360,7 @@ export async function initCpa(): Promise<void> {
     renderResult(result);
   } catch (cause) {
     const message = cause instanceof Error ? cause.message : 'Unknown initialization failure';
-    panel.innerHTML = `<div class="verdict" data-tone="alarm"><i data-lucide="shield-alert"></i><div><strong>CRYPTO ENGINE DID NOT INITIALIZE</strong><p>${escapeHtml(message)}</p></div></div>`;
+    panel.innerHTML = `<div class="verdict" data-verdict="cpa-init" data-tone="alarm"><i data-lucide="shield-alert"></i><div><strong>CRYPTO ENGINE DID NOT INITIALIZE</strong><p>${escapeHtml(message)}</p></div></div>`;
     hydrateIcons(panel);
   }
 }

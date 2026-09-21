@@ -49,12 +49,12 @@ function markup(): string {
       </section>
       <section class="result-block">
         <h3>Verifier outcomes</h3>
-        <div id="forgery-verdict" class="verdict" data-tone="neutral" role="status" aria-live="polite">
+        <div id="forgery-verdict" class="verdict" data-verdict="forgery" data-tone="neutral" role="status" aria-live="polite">
           <i data-lucide="circle-dot"></i><div><strong>READY</strong><p>The candidate will be checked by the real verifier.</p></div>
         </div>
         <div id="ecdsa-twin" hidden>
-          <div id="plain-verifier" class="verdict" data-tone="alarm" data-testid="plain-verifier"></div>
-          <div id="low-s-verifier" class="verdict" data-tone="pass" data-testid="low-s-verifier"></div>
+          <div id="plain-verifier" class="verdict" data-verdict="forgery-plain" data-tone="neutral" data-testid="plain-verifier"></div>
+          <div id="low-s-verifier" class="verdict" data-verdict="forgery-lows" data-tone="neutral" data-testid="low-s-verifier"></div>
         </div>
       </section>
     </div>
@@ -117,9 +117,22 @@ export function initForgery(): void {
         verdict.dataset.tone = 'pass';
         verdict.innerHTML = `<i data-lucide="check-circle-2"></i><div><strong>${escapeHtml(result.verdict)}</strong><p>${escapeHtml(result.explanation)}</p></div>`;
       }
-      if (result.scheme === 'ecdsa-malleation') {
-        query<HTMLElement>('#plain-verifier', panel).innerHTML = '<i data-lucide="shield-alert"></i><div><strong>PLAIN VERIFIER: ACCEPTED</strong><p>VERIFIES — AND IS A NEW SIGNATURE ON A QUERIED MESSAGE. SUF-CMA fails here.</p></div>';
-        query<HTMLElement>('#low-s-verifier', panel).innerHTML = '<i data-lucide="check-circle-2"></i><div><strong>LOW-S VERIFIER: REJECTED</strong><p>The library default permits only the canonical low half of s.</p></div>';
+      if (result.scheme === 'ecdsa-malleation' && result.verifiers) {
+        // Both banners branch on what the real verifiers returned for this run.
+        // They previously restated the expected outcome as a literal, which made
+        // the exhibit's headline a claim about the source rather than evidence
+        // from the run: forcing verifyEcdsaPlain to enforce low-S left the page
+        // rendering "PLAIN VERIFIER: ACCEPTED" beside a computed "rejected".
+        const plain = query<HTMLElement>('#plain-verifier', panel);
+        plain.dataset.tone = result.verifiers.plain ? 'alarm' : 'pass';
+        plain.innerHTML = result.verifiers.plain
+          ? '<i data-lucide="shield-alert"></i><div><strong>PLAIN VERIFIER: ACCEPTED</strong><p>VERIFIES — AND IS A NEW SIGNATURE ON A QUERIED MESSAGE. SUF-CMA fails here.</p></div>'
+          : '<i data-lucide="check-circle-2"></i><div><strong>PLAIN VERIFIER: REJECTED</strong><p>This run did not reproduce the malleation: the plain verifier refused the (r, n - s) twin.</p></div>';
+        const lowS = query<HTMLElement>('#low-s-verifier', panel);
+        lowS.dataset.tone = result.verifiers.lowS ? 'alarm' : 'pass';
+        lowS.innerHTML = result.verifiers.lowS
+          ? '<i data-lucide="shield-alert"></i><div><strong>LOW-S VERIFIER: ACCEPTED</strong><p>Unexpected: the canonical verifier admitted a signature whose s is above n / 2.</p></div>'
+          : '<i data-lucide="check-circle-2"></i><div><strong>LOW-S VERIFIER: REJECTED</strong><p>The library default permits only the canonical low half of s.</p></div>';
       }
       retirement.textContent = 'Fresh result from the selected signing oracle and verifier.';
       hydrateIcons(panel);

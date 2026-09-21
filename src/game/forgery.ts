@@ -21,6 +21,12 @@ export interface ForgeryResult {
   readonly verdict: string;
   readonly explanation: string;
   readonly values: Readonly<Record<string, string>>;
+  /**
+   * Per-verifier outcomes the page renders as their own verdicts. These are the
+   * real return values of the real verifiers; the banners branch on them rather
+   * than restating what the exhibit is supposed to show.
+   */
+  readonly verifiers?: Readonly<Record<'plain' | 'lowS', boolean>>;
 }
 
 export async function runForgery(scheme: ForgeryScheme): Promise<ForgeryResult> {
@@ -97,6 +103,7 @@ export async function runForgery(scheme: ForgeryScheme): Promise<ForgeryResult> 
         plainVerifier: plainAccepted ? 'accepted' : 'rejected',
         lowSVerifier: lowSAccepted ? 'accepted' : 'rejected',
       },
+      verifiers: { plain: plainAccepted, lowS: lowSAccepted },
     };
   }
 

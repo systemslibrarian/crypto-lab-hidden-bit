@@ -16,7 +16,7 @@ The ideal permutation and ideal function are faithfully lazy-sampled mathematica
 
 1. **Hidden-bit IND-CPA game.** Pick RSA-OAEP, ristretto255 ElGamal, textbook RSA, or an AES mode; choose random guessing, re-encryption, or the chained-IV predictor; then run, stop, or step one real trial. The sealed coin, oracle transcript, trial tape, histogram, Wilson 95% interval, and complete ledger update together.
 2. **Adaptive CCA2 oracle.** Submit a modified ElGamal or RSA-OAEP challenge. The oracle visibly refuses the exact challenge bytes. ElGamal's group-element malleation reaches advantage one; OAEP's decoder rejects the bit-flip tactic uniformly.
-3. **Chosen-message signature oracle.** Produce multiplicative and blinding forgeries against textbook RSA, compare altered RSA-PSS and Ed25519 signatures, and compute ECDSA's $(r,n-s)$ twin. The same twin is checked by a plain verifier (`lowS: false`) and Noble's default low-S verifier.
+3. **Chosen-message signature oracle.** Produce multiplicative and blinding forgeries against textbook RSA, compare altered RSA-PSS and Ed25519 signatures, and compute ECDSA's $(r,n-s)$ twin. The same twin is checked by a plain verifier (`lowS: false`) and Noble's default low-S verifier, and each verifier's banner reports what that verifier actually returned — either can render the opposite outcome.
 4. **PRP/PRF switching game.** Lazily sample an ideal $n$-bit permutation or function for selectable $8 \le n \le 20$. A collision-finding adversary is measured across growing $q$ and plotted against $q(q-1)/2^{n+1}$, with the expression also shown at $n=128$.
 5. **Live reduction.** Wrap either public-oracle IND-CPA adversary inside a DDH distinguisher. The page measures both sides and checks the convention $\operatorname{Adv}(B)=\operatorname{Adv}(A)/2$ within a displayed combined sampling interval.
 
@@ -72,11 +72,49 @@ npm test
 npm run build
 npx playwright install --with-deps chromium
 npm run test:a11y
+npm run test:mutations
 ```
 
 The unit gate contains **77 tests** in 11 files. It includes **3 published known-answer cases**: FIPS 197 AES-128, RFC 6979 P-256 ECDSA, and RFC 8032 Ed25519. Coverage is measured over the cryptographic and game logic only — `src/game/`, `src/schemes/`, `src/adversaries/`, `src/prf/`, `src/reduction/` and `src/kats.ts` — because that is the code whose correctness the claims rest on; the presentation layer (`src/ui/`, `src/main.ts`) is excluded from the measurement and is covered instead by the 12 browser tests below. Over that scope the enforced baseline is 90% statements, 80% branches, 90% functions, and 90% lines; the final measured result is 93.62%, 83.4%, 93.13%, and 96.66%, respectively.
 
-The Playwright gate contains **12 browser tests**: 10 truth and workflow claims, including independent raw-RSA modular exponentiation and secp256k1 point arithmetic, plus 2 WCAG state walks. It builds before serving, drives real controls at desktop and 380 px, requires zero WCAG 2.1 A/AA violations, inspects axe's incomplete bucket, and independently checks text contrast, control-boundary contrast, reduced motion, reflow, focus targets, scroll regions, and hidden states.
+The Playwright gate contains **21 browser tests** in 3 files: 10 truth and workflow claims (`e2e/claims.spec.ts`), including independent raw-RSA modular exponentiation and secp256k1 point arithmetic; 9 verdict-coverage and verdict-branching tests (`e2e/verdicts.spec.ts`); and 2 WCAG state walks (`e2e/a11y.spec.ts`). It builds before serving, drives real controls at desktop and 380 px, requires zero WCAG 2.1 A/AA violations, inspects axe's incomplete bucket, and independently checks text contrast, control-boundary contrast, reduced motion, reflow, focus targets, scroll regions, and hidden states.
+
+### Every rendered verdict is measured, and every verdict is mutation-covered
+
+A verdict is real only when it can be forced false and something goes red. This
+lab shipped one that could not.
+
+Exhibit 03's two ECDSA verifier banners — `PLAIN VERIFIER: ACCEPTED` and
+`LOW-S VERIFIER: REJECTED` — were **string literals**. The cryptography behind
+them was entirely real, and their outcomes were genuinely computed: `forgery.ts`
+called both verifiers and wrote their real results into the transcript. The
+banners just never read them. Forcing the plain verifier to enforce low-S made
+it reject the `(r, n - s)` twin — collapsing the whole point of the exhibit —
+and the page still rendered `PLAIN VERIFIER: ACCEPTED`, in alarm red, beside its
+own computed `plainVerifier: rejected`, with all ten claims tests green. Both
+banners now branch on the verifiers' real return values, and either can render
+the opposite outcome.
+
+Coverage is derived by **walking the rendered page**, never from a list of
+exhibits, because a list is a self-report:
+
+- every rendered verdict carries a `data-verdict` marker;
+- `npm run test:verdicts` fails on a marker with no mutation in
+  `mutations/registry.json`, and fails on verdict words or verdict styling
+  rendered **outside** a marker — with a test that injects a raw unmarked banner
+  the way a careless builder would, so the check is known to be able to fail;
+- `npm run test:mutations` forces each of the 11 markers false in turn and
+  requires a **kill**: the unmutated baseline passing in the same run, and the
+  failure being that verdict's own assertion rather than a build error, a blank
+  page, a timeout, or the whole suite going red.
+
+Every run sets `CI=1`, which turns off Playwright's `reuseExistingServer`, so no
+stale server on this lab's pinned port `4667` can answer for an unmutated
+checkout and turn a real kill into a survivor.
+
+In CI, `verdict-coverage` is its own job and both `deploy` and the Dependabot
+auto-merge take `needs:` on it, so the gate sits between every trigger — a direct
+push to `main` included — and the Pages deployment.
 
 ## Performance
 

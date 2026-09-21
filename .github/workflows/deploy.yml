@@ -45,8 +45,41 @@ jobs:
         with:
           path: dist
 
+  # ── B: the rule only gates if it can block ────────────────────────────────
+  # Verdict coverage is its own required check, and BOTH deploy and the
+  # dependabot auto-merge take `needs:` on it. Auto-merge waits only on required
+  # checks and a direct push to main skips PR checks entirely, so a gate that
+  # merely runs is decoration: this one sits between every trigger and the
+  # Pages deployment, including a direct push to main.
+  verdict-coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+      # Coverage is derived by walking the RENDERED page, never from an
+      # enumeration of exhibits: fails on a [data-verdict] marker with no
+      # mutation in mutations/registry.json, and fails on verdict words or
+      # verdict styling rendered outside a marker.
+      - name: Verdict coverage gate
+        run: npm run test:verdicts
+      # §4.1c. Every marker's mutation must be KILLED: unmutated baseline
+      # passing in the same run, and the failure being that verdict's own
+      # assertion rather than a build error, a blank page or a timeout.
+      - name: Verdict mutation sweep
+        run: npm run test:mutations
+
   deploy:
-    needs: build
+    needs: [build, verdict-coverage]
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -59,7 +92,7 @@ jobs:
         uses: actions/deploy-pages@v5
 
   dependabot-auto-merge:
-    needs: build
+    needs: [build, verdict-coverage]
     if: github.event_name == 'pull_request' && github.actor == 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 10

@@ -74,10 +74,14 @@ function verifyEcdsaIndependently(messageHex: string, publicKeyHex: string, r: b
 
 async function boot(page: Page): Promise<void> {
   await page.goto('.');
-  await expect(page.locator('#kat-strip')).toHaveAttribute('data-state', 'pass');
   await expect(page.locator('#cpa-scheme')).toBeEnabled({ timeout: 30_000 });
   await expect(page.locator('h1')).toHaveText('Hidden Bit');
 }
+// The KAT strip's own verdict assertion lives in verdicts.spec.ts
+// ("KAT strip verdict follows the measured vectors"), not in boot(). A claim
+// asserted inside a shared fixture turns one broken verdict into a red suite,
+// which is exactly the shape that makes a real kill indistinguishable from a
+// collapsed run.
 
 async function openTab(page: Page, name: string): Promise<void> {
   await page.getByRole('tab', { name }).click();
@@ -161,12 +165,43 @@ test('ECDSA values reconstruct the accepted high-S twin', async ({ page }) => {
   expect(BigInt(`0x${malleatedSignature.slice(0, 64)}`)).toBe(r);
   expect(BigInt(`0x${malleatedSignature.slice(64)}`)).toBe(malleatedS);
   expect(malleatedS).toBeGreaterThan(n / 2n);
-  expect(verifyEcdsaIndependently(messageHex, publicKey, r, malleatedS)).toBe(true);
-  await expect(page.locator('#plain-verifier')).toHaveAttribute('data-tone', 'alarm');
-  await expect(page.locator('#plain-verifier')).toContainText('PLAIN VERIFIER: ACCEPTED');
-  await expect(page.locator('#plain-verifier')).toContainText('VERIFIES — AND IS A NEW SIGNATURE ON A QUERIED MESSAGE');
-  await expect(page.locator('#low-s-verifier')).toHaveAttribute('data-tone', 'pass');
-  await expect(page.locator('#low-s-verifier')).toContainText('LOW-S VERIFIER: REJECTED');
+
+  // Both verifier banners are checked against an INDEPENDENT decision, not
+  // against the text they are expected to show. Asserting that a banner says
+  // "ACCEPTED" proves only that some string reached the DOM; until this lane
+  // these two banners were literals, and forcing the page's own plain verifier
+  // to enforce low-S left it rendering "PLAIN VERIFIER: ACCEPTED" next to a
+  // computed "rejected" with all ten claims still green.
+  const independentlyAccepted = verifyEcdsaIndependently(messageHex, publicKey, r, malleatedS);
+  expect(independentlyAccepted, 'the (r, n - s) twin must verify under plain ECDSA').toBe(true);
+  await expect(page.locator('#plain-verifier')).toContainText(
+    independentlyAccepted ? 'PLAIN VERIFIER: ACCEPTED' : 'PLAIN VERIFIER: REJECTED',
+  );
+  await expect(page.locator('#plain-verifier')).toHaveAttribute(
+    'data-tone',
+    independentlyAccepted ? 'alarm' : 'pass',
+  );
+  if (independentlyAccepted) {
+    await expect(page.locator('#plain-verifier')).toContainText('VERIFIES — AND IS A NEW SIGNATURE ON A QUERIED MESSAGE');
+  }
+
+  // A canonical low-S verifier must refuse any s above n / 2. That is decided
+  // here by arithmetic on the displayed s, not by the page's own verifier.
+  const twinIsHighS = malleatedS > n / 2n;
+  expect(twinIsHighS, 'the twin must be the high-S form for this exhibit to mean anything').toBe(true);
+  await expect(page.locator('#low-s-verifier')).toContainText(
+    twinIsHighS ? 'LOW-S VERIFIER: REJECTED' : 'LOW-S VERIFIER: ACCEPTED',
+  );
+  await expect(page.locator('#low-s-verifier')).toHaveAttribute('data-tone', twinIsHighS ? 'pass' : 'alarm');
+
+  // The transcript's own computed fields must agree with the banners; three
+  // readouts of one fact are only evidence while they cannot disagree.
+  await expect(page.locator('[data-field="plainVerifier"]')).toHaveText(
+    independentlyAccepted ? 'accepted' : 'rejected',
+  );
+  await expect(page.locator('[data-field="lowSVerifier"]')).toHaveText(
+    twinIsHighS ? 'rejected' : 'accepted',
+  );
 });
 
 test('displayed textbook RSA forgeries verify on unqueried messages', async ({ page }) => {

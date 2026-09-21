@@ -38,7 +38,7 @@ function markup(): string {
     <div class="result-grid">
       <section class="result-block" aria-labelledby="cca-boundary-title">
         <h3 id="cca-boundary-title">Oracle boundary</h3>
-        <div id="cca-refusal" class="verdict" data-tone="neutral">
+        <div id="cca-refusal" class="verdict" data-verdict="cca-boundary" data-tone="neutral">
           <i data-lucide="circle-dot"></i><div><strong>NOT QUERIED YET</strong><p>The challenge rejection is checked by exact byte comparison.</p></div>
         </div>
         <ol id="cca-trace" class="trace-list" role="list">
@@ -57,7 +57,7 @@ function markup(): string {
         </div>
         <div class="metric-label"><span>ADVANTAGE</span><span id="cca-interval">95% interval: —</span></div>
         <div id="cca-advantage" class="metric-value" data-testid="cca-advantage" data-value="0">0.000</div>
-        <div id="cca-verdict" class="verdict" data-tone="neutral" role="status" aria-live="polite">
+        <div id="cca-verdict" class="verdict" data-verdict="cca" data-tone="neutral" role="status" aria-live="polite">
           <i data-lucide="circle-dot"></i><div><strong>READY</strong><p>Run the real oracle before reading a result.</p></div>
         </div>
       </section>

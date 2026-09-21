@@ -369,6 +369,26 @@ body {
 .verdict strong { display: block; font-size: .78rem; line-height: 1.4; }
 .verdict p { margin: .25rem 0 0; color: inherit; font-size: .69rem; line-height: 1.5; }
 
+/* A computed formula readout, not an outcome. It deliberately does NOT use the
+   .verdict class: verdict chrome is reserved for elements that carry a
+   data-verdict marker, and e2e/verdict-audit.ts fails the build on any .verdict
+   without one. Dashed rule + muted ground distinguishes "here is a number" from
+   "here is a result". */
+.formula-note {
+  display: flex;
+  gap: .75rem;
+  align-items: flex-start;
+  min-height: 68px;
+  margin-top: 1rem;
+  padding: .85rem 1rem;
+  border: 1px dashed var(--border-strong);
+  border-radius: 4px;
+  background-color: var(--surface-3);
+}
+.formula-note svg { flex: 0 0 auto; width: 21px; height: 21px; color: var(--text-muted); }
+.formula-note strong { display: block; color: var(--text-muted); font-size: .78rem; line-height: 1.4; letter-spacing: .06em; }
+.formula-note p { margin: .25rem 0 0; color: var(--text-dim); font-size: .69rem; line-height: 1.5; }
+
 .negative-fixture { margin-top: 1rem; padding: 1rem; border: 1px dashed var(--warning); background-color: var(--warning-bg); }
 .negative-fixture h3 { margin: 0 0 .35rem; font-family: var(--display); font-size: 1.1rem; }
 .negative-fixture p { margin: 0; color: var(--text-dim); font-size: .72rem; line-height: 1.55; }
