@@ -49,14 +49,14 @@ function markup(): string {
       </section>
       <section class="result-block" aria-labelledby="cca-result-title">
         <h3 id="cca-result-title">Measured result</h3>
-        <div class="ledger">
+        <div class="ledger" data-claim="cca-ledger">
           <div><span>Wins</span><strong id="cca-wins" data-testid="cca-wins">0</strong></div>
           <div><span>Losses</span><strong id="cca-losses" data-testid="cca-losses">0</strong></div>
           <div><span>Errors</span><strong id="cca-errors" data-testid="cca-errors">0</strong></div>
           <div><span>Trials</span><strong id="cca-total" data-testid="cca-total">0</strong></div>
         </div>
-        <div class="metric-label"><span>ADVANTAGE</span><span id="cca-interval">95% interval: —</span></div>
-        <div id="cca-advantage" class="metric-value" data-testid="cca-advantage" data-value="0">0.000</div>
+        <div class="metric-label"><span>ADVANTAGE</span><span id="cca-interval" data-claim="cca-interval">95% interval: —</span></div>
+        <div id="cca-advantage" class="metric-value" data-claim="cca-advantage" data-testid="cca-advantage" data-value="0">0.000</div>
         <div id="cca-verdict" class="verdict" data-verdict="cca" data-tone="neutral" role="status" aria-live="polite">
           <i data-lucide="circle-dot"></i><div><strong>READY</strong><p>Run the real oracle before reading a result.</p></div>
         </div>

@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
+import { expectVerdict, readClaim } from './verdict-audit';
 
 const SECP_P = 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2fn;
 const SECP_N = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;
@@ -116,7 +117,7 @@ test('headline advantage and ledger are independently consistent', async ({ page
   expect(wins).toBe(20);
   expect(losses).toBe(0);
   expect(displayed).toBeCloseTo((2 * wins) / trials - 1, 12);
-  await expect(page.locator('#cpa-verdict')).toContainText('BROKEN: ADVANTAGE');
+  await expectVerdict(page, 'cpa', { text: 'BROKEN: ADVANTAGE', state: 'alarm' });
 });
 
 test('changing an input retires a result while a no-op does not', async ({ page }) => {
@@ -134,9 +135,12 @@ test('negative claim survives green KATs and two misleading flat lines', async (
   await runCpa(page, 'aes-cbc-chained', 'random', 600);
   await runCpa(page, 'aes-cbc-chained', 'reencrypt', 600);
   await expect(page.locator('#kat-strip')).toHaveAttribute('data-state', 'pass');
-  await expect(page.locator('#cbc-negative-title')).toHaveText(
-    'NO ADVANTAGE FOUND BY THESE ADVERSARIES — AND THE SCHEME IS BROKEN',
-  );
+  // The headline and the tone are one claim: two genuine flat lines promote
+  // both, so a mutation that pins either of them fails here.
+  await expectVerdict(page, 'cpa-negative', {
+    text: 'NO ADVANTAGE FOUND BY THESE ADVERSARIES — AND THE SCHEME IS BROKEN',
+    state: 'alarm',
+  });
   await expect(page.locator('#cbc-negative')).toContainText(
     'A measured advantage near zero shows that these adversaries failed; it is not evidence that the scheme is IND-CPA secure.',
   );
@@ -152,6 +156,22 @@ test('ECDSA values reconstruct the accepted high-S twin', async ({ page }) => {
   await page.locator('#forgery-scheme').selectOption('ecdsa-malleation');
   await page.locator('#forgery-run').click();
   await expect(page.locator('#forgery-retirement')).toContainText('Fresh result');
+
+  // The transcript marker is read and SHAPE-CHECKED before anything is
+  // converted. BigInt() throws on a value it cannot parse, and a thrown
+  // conversion is not an assertion: a kill has to be this marker's own check
+  // failing, with an Expected and a Received a reader can compare.
+  const transcript = await readClaim(page, 'forgery-transcript');
+  for (const field of ['r', 's', 'n', 'malleatedS', 'malleatedSignature', 'plainVerifier', 'lowSVerifier']) {
+    expect(transcript.text, `the transcript no longer renders ${field}`).toContain(field);
+  }
+  for (const field of ['r', 's', 'n', 'malleatedS']) {
+    expect(
+      await page.locator(`[data-field="${field}"]`).textContent(),
+      `the transcript renders ${field} in a form no reader can check`,
+    ).toMatch(/^0x[0-9a-f]+$/);
+  }
+
   const r = BigInt(await page.locator('[data-field="r"]').textContent() ?? '0');
   const s = BigInt(await page.locator('[data-field="s"]').textContent() ?? '0');
   const n = BigInt(await page.locator('[data-field="n"]').textContent() ?? '0');
@@ -174,13 +194,10 @@ test('ECDSA values reconstruct the accepted high-S twin', async ({ page }) => {
   // computed "rejected" with all ten claims still green.
   const independentlyAccepted = verifyEcdsaIndependently(messageHex, publicKey, r, malleatedS);
   expect(independentlyAccepted, 'the (r, n - s) twin must verify under plain ECDSA').toBe(true);
-  await expect(page.locator('#plain-verifier')).toContainText(
-    independentlyAccepted ? 'PLAIN VERIFIER: ACCEPTED' : 'PLAIN VERIFIER: REJECTED',
-  );
-  await expect(page.locator('#plain-verifier')).toHaveAttribute(
-    'data-tone',
-    independentlyAccepted ? 'alarm' : 'pass',
-  );
+  await expectVerdict(page, 'forgery-plain', {
+    text: independentlyAccepted ? 'PLAIN VERIFIER: ACCEPTED' : 'PLAIN VERIFIER: REJECTED',
+    state: independentlyAccepted ? 'alarm' : 'pass',
+  });
   if (independentlyAccepted) {
     await expect(page.locator('#plain-verifier')).toContainText('VERIFIES — AND IS A NEW SIGNATURE ON A QUERIED MESSAGE');
   }
@@ -189,10 +206,10 @@ test('ECDSA values reconstruct the accepted high-S twin', async ({ page }) => {
   // here by arithmetic on the displayed s, not by the page's own verifier.
   const twinIsHighS = malleatedS > n / 2n;
   expect(twinIsHighS, 'the twin must be the high-S form for this exhibit to mean anything').toBe(true);
-  await expect(page.locator('#low-s-verifier')).toContainText(
-    twinIsHighS ? 'LOW-S VERIFIER: REJECTED' : 'LOW-S VERIFIER: ACCEPTED',
-  );
-  await expect(page.locator('#low-s-verifier')).toHaveAttribute('data-tone', twinIsHighS ? 'pass' : 'alarm');
+  await expectVerdict(page, 'forgery-lows', {
+    text: twinIsHighS ? 'LOW-S VERIFIER: REJECTED' : 'LOW-S VERIFIER: ACCEPTED',
+    state: twinIsHighS ? 'pass' : 'alarm',
+  });
 
   // The transcript's own computed fields must agree with the banners; three
   // readouts of one fact are only evidence while they cannot disagree.
@@ -202,6 +219,7 @@ test('ECDSA values reconstruct the accepted high-S twin', async ({ page }) => {
   await expect(page.locator('[data-field="lowSVerifier"]')).toHaveText(
     twinIsHighS ? 'rejected' : 'accepted',
   );
+
 });
 
 test('displayed textbook RSA forgeries verify on unqueried messages', async ({ page }) => {
@@ -233,13 +251,18 @@ test('switching rows match the formula and stay under bound plus tolerance', asy
   await expect(page.locator('#switch-status')).toContainText('Fresh switching curve');
   const rows = page.locator('#switch-rows tr');
   expect(await rows.count()).toBeGreaterThan(1);
+  // n is read back from the control, never written as a literal: 2 ** 9 is
+  // 2^(n + 1) for the one n this test happens to set, and it would keep
+  // agreeing by luck while silently ceasing to check anything the moment the
+  // control moved.
+  const bits = Number(await page.locator('#switch-bits').inputValue());
   for (const row of await rows.all()) {
     const cells = await row.locator('td').allTextContents();
     const q = Number(cells[0]);
     const measured = Number(cells[2]);
     const bound = Number(cells[3]);
     const tolerance = Number(cells[5]!.replace('±', '').trim());
-    expect(bound).toBeCloseTo((q * (q - 1)) / 2 ** 9, 5);
+    expect(bound).toBeCloseTo((q * (q - 1)) / (2 * 2 ** bits), 5);
     expect(measured).toBeLessThanOrEqual(bound + tolerance + 0.0002);
   }
 });
@@ -262,14 +285,14 @@ test('exact CCA challenge is refused and hidden panels stay unpainted', async ({
   await page.locator('#cca-trials').fill('20');
   await page.locator('#cca-run').click();
   await expect(page.locator('#cca-retirement')).toContainText('Fresh CCA2 result');
-  await expect(page.locator('#cca-refusal')).toContainText('EXACT CHALLENGE REFUSED');
+  await expectVerdict(page, 'cca-boundary', { text: 'EXACT CHALLENGE REFUSED', state: 'pass' });
   expect(Number(await page.locator('#cca-errors').textContent())).toBe(0);
 
   await page.locator('#cca-scheme').selectOption('elgamal-cca');
   await page.locator('#cca-trials').fill('10');
   await page.locator('#cca-run').click();
   await expect(page.locator('#cca-retirement')).toContainText('Fresh CCA2 result');
-  await expect(page.locator('#cca-refusal')).toContainText('EXACT CHALLENGE REFUSED');
+  await expectVerdict(page, 'cca-boundary', { text: 'EXACT CHALLENGE REFUSED', state: 'pass' });
   await expect(page.locator('#cca-advantage')).toHaveText('1.000');
 
   const paintedHidden = await page.locator('[hidden]').evaluateAll((elements) =>

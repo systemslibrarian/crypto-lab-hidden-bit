@@ -82,7 +82,12 @@ function classify(output) {
 }
 
 function failingTests(output) {
-  return [...output.matchAll(/^\s*\d+\)\s+(.+?)\s*[─-]{3,}/gm)].map((match) => match[1].trim());
+  // The trailing rule is OPTIONAL. Playwright pads a short failure headline out
+  // to the terminal width with box-drawing dashes and leaves a long one bare,
+  // so requiring them silently dropped every failure whose test title happened
+  // to be long — and a dropped failure is reported as "wrong assertion", which
+  // reads as a defect in the mutation rather than in this parser.
+  return [...output.matchAll(/^\s*\d+\)\s+(.+?)(?:\s*[─-]{3,})?\s*$/gm)].map((match) => match[1].trim());
 }
 
 function excerpt(output, grep) {
