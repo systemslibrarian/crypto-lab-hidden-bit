@@ -115,6 +115,37 @@ exhibits, because a list is a self-report:
   helper (or `readClaim`, for a measurement) fails the build: before this, the
   rule asked only that the spec *mentioned* the marker id, and a mention is not
   an assertion;
+- **that rule is enforced at runtime, not by reading spec source.** Requiring
+  the call as *text* was the same defect one level down, and it was defeated
+  three ways across this fleet's verdict-gated labs: comment the call out and
+  the text survives inside the comment; keep the call and feed it values read
+  off the page in the same test; leave an unrelated call elsewhere in the file.
+  So each helper now writes the `(test title, marker id)` pair it actually
+  **executes** to a run-scoped sink under `test-results/`, cleared at the start
+  of every run, and `e2e/global-teardown.ts` reads them back after the last test
+  and fails the run when a recorded mutation's pair never appeared. Where the
+  record pins `asserts`, the `(text, state)` the test passed must be the pair
+  pinned at that POSITION — which is what refuses an expectation read off the
+  page under test. Position rather than membership, because a killing test that
+  walks two branches hands the helper two pairs, and under a mutation that
+  merely *swaps* those branches a page-derived argument hands back the same two
+  pairs in the opposite order: a set comparison sees nothing wrong and the
+  escape survives. **The stated limit:** a `data-claim` oracle recomputes its
+  expectation from the run — a Wilson interval, an exact collision probability —
+  so there is no honest literal to pin for one, and a tautological *measurement*
+  oracle is caught by the mutation sweep reporting a survivor rather than by the
+  coverage rule;
+- **a measured row is bound to its own run, not only to itself.** The switching
+  table's oracle used to check each row's internal consistency — measured
+  advantage against the Wilson estimate of that row's own wins and trials — which
+  a row copied from another q satisfies by construction, because it is the same
+  row. Replicating one measurement across the whole curve, with only `q` and the
+  bound corrected, left the suite green while the page rendered identical rows
+  under *"N q values, M trials each"*. Each row is now also compared with the
+  birthday collision probability at ITS q, within that row's own rendered
+  tolerance, and both of the caption's numbers are read back out of the caption
+  and checked against the table. That mutation is recorded as
+  `curve-replicates-one-measurement`;
 - the walk that all of those rules enumerate over, `driveEveryState`, visits
   **every option of every control that changes what renders** — each control on
   its own, not the cross-product. Seven CPA schemes, three adversaries, five
@@ -122,10 +153,12 @@ exhibits, because a list is a self-report:
   n, the step and stop buttons, every refusal and every retirement. A state the
   walk never reaches is outside the set the coverage rules judge, however
   carefully those rules are written;
-- `npm run test:mutations` forces each of the 26 markers false in turn and
-  requires a **kill**: the unmutated baseline passing in the same run, and the
-  failure being that marker's own assertion rather than a build error, a blank
-  page, a timeout, or the whole suite going red.
+- `npm run test:mutations` applies **27 recorded mutations across the 26
+  markers** — `switch-rows` carries two, because a doubled bound and a
+  replicated row are different defects — and requires a **kill** for each: the
+  unmutated baseline passing in the same run, and the failure being that
+  marker's own assertion rather than a build error, a blank page, a timeout, or
+  the whole suite going red.
 
 Every run sets `CI=1`, which turns off Playwright's `reuseExistingServer`, so no
 stale server on this lab's pinned port `4667` can answer for an unmutated
