@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { expect, test, type Page } from '@playwright/test';
+import { REGISTRY, family, requiredHelper } from './mutation-registry';
 import {
   claimField,
   expectNoVerdict,
@@ -11,21 +12,6 @@ import {
   unmarkedVerdicts,
   type Claim,
 } from './verdict-audit';
-
-interface MutationRecord {
-  readonly marker: string;
-  readonly id: string;
-  readonly family?: 'verdict' | 'claim';
-  readonly spec: string;
-  readonly grep: string;
-  readonly rendersOnlyUnderMutation?: boolean;
-}
-
-const REGISTRY = JSON.parse(
-  readFileSync(fileURLToPath(new URL('../mutations/registry.json', import.meta.url)), 'utf8'),
-) as { mutations: MutationRecord[] };
-
-const family = (entry: MutationRecord): 'verdict' | 'claim' => entry.family ?? 'verdict';
 
 const COVERED = {
   verdict: Array.from(
@@ -80,6 +66,39 @@ function formatted(value: number, digits = 3): string {
 /** The switching bound, q(q - 1) / 2^(n + 1), derived from the CHOSEN n. */
 function switchingBound(bits: number, queries: number): number {
   return (queries * (queries - 1)) / (2 * 2 ** bits);
+}
+
+/**
+ * What a row at THIS q should measure, predicted independently of the row.
+ *
+ * Fix 4. The oracle below used to check each row's INTERNAL consistency only —
+ * measured advantage against the Wilson estimate of that row's own wins and
+ * trials — which a row satisfies by construction because it is the same row.
+ * The 2026-09-21 audit replicated the first q point into every later row, with
+ * only `queries` and `bound` corrected, and the suite stayed green at 35/35
+ * while the page rendered four identical rows under "4 q values, 200 trials
+ * each". Nothing bound a row to its own run, which is what "trials each"
+ * claims and what the exhibit teaches: advantage rising with q.
+ *
+ * This is that binding. The collision finder guesses "function" exactly when it
+ * sees a repeat, so it is right on every permutation draw and right on a
+ * function draw only when q queries collide. Its win rate is therefore
+ * (1 + p) / 2 and its advantage is p, where p is the birthday probability of a
+ * collision among q draws from 2^n — which rises steeply with q and is what
+ * separates a measured row from a copied one.
+ *
+ * This is the same arithmetic as `exactFunctionCollisionProbability` in
+ * src/prf/switching.ts, written out again here rather than imported, for the
+ * reason the `wilson` stand-in above states: an oracle that calls the code it
+ * judges agrees with it by construction. Nothing on the render path calls that
+ * function at all, so this is a genuinely independent prediction of the number
+ * the page measured.
+ */
+function exactCollisionProbability(bits: number, queries: number): number {
+  const size = 2 ** bits;
+  let noCollision = 1;
+  for (let index = 0; index < queries; index += 1) noCollision *= (size - index) / size;
+  return 1 - noCollision;
 }
 
 /** The q values a curve measures: powers of two below q, then q itself. */
@@ -414,17 +433,25 @@ test('every rendered claim marker has a mutation covering it', async ({ page }) 
 });
 
 /**
- * A recorded kill must go THROUGH the shared helper.
+ * The killing test EXISTS and names the right helper — a cheap pre-check, and
+ * NOT the rule that enforces D6.
  *
- * The rule this replaces required only that the spec MENTIONED the marker id.
- * A mention is not an assertion, and it says nothing about state: a mutation
- * that flips the words while leaving the marker painted as a pass would be
- * recorded as a kill, and the marker would go on claiming success in every way
- * a reader can see except the sentence. Requiring the call means the text, the
- * state value and the fact that the state is painted are all asserted together,
- * in one place, for every marker in the record.
+ * This is a scan of spec source, and D6 exists because a scan of spec source is
+ * exactly what three auditors defeated: comment the call out and the text
+ * survives inside the comment; keep the call and feed it values read off the
+ * page; leave an unrelated call elsewhere in the file. All three keep a
+ * substring match green while the assertion that was recorded as the kill is
+ * gone.
+ *
+ * So the authoritative rule now runs in `e2e/global-teardown.ts`: every helper
+ * writes the `(test title, marker id)` pair it EXECUTES to a run-scoped sink,
+ * and the teardown fails the run when a record's pair never appeared. What this
+ * test still buys is the one thing a runtime rule cannot see — a killing test
+ * that was DELETED rather than hollowed out has no title to observe and nothing
+ * to complain about on a `--grep`'d run, and the message here names it by id
+ * rather than leaving the reader to infer it from an absence.
  */
-test('every recorded mutation is killed through the shared marker helpers', async () => {
+test('every recorded mutation names an existing test that calls the shared helper', async () => {
   const sources = new Map<string, string>();
   const sourceOf = (spec: string): string => {
     if (!sources.has(spec)) {
@@ -450,12 +477,7 @@ test('every recorded mutation is killed through the shared marker helpers', asyn
       failures.push(`${entry.id}: ${entry.spec} has no test whose title contains "${entry.grep}"`);
       continue;
     }
-    const required =
-      family(entry) === 'claim'
-        ? `readClaim(page, '${entry.marker}'`
-        : entry.rendersOnlyUnderMutation
-          ? `expectNoVerdict(page, '${entry.marker}'`
-          : `expectVerdict(page, '${entry.marker}'`;
+    const required = `${requiredHelper(entry)}(page, '${entry.marker}'`;
     if (!body.includes(required)) {
       failures.push(
         `${entry.id}: "${entry.grep}" never calls ${required}), so its recorded kill was ` +
@@ -769,12 +791,25 @@ test('the CCA2 interval claim equals the recomputed Wilson interval', async ({ p
 
 test('the switching rows claim matches the bound recomputed at the chosen n', async ({ page }) => {
   // marker: switch-rows
+  //
+  // Fix 4. The trial count is 2,000 rather than the 200 this test used to
+  // request, and that is load-bearing rather than caution. Each row renders its
+  // own alarm tolerance, and the oracle below compares that row's measured
+  // advantage with the per-q prediction WITHIN that rendered width; at 200
+  // trials the width is 0.381, which is wider than the whole 0.004-to-0.380
+  // spread the curve covers at n = 8, so every row would sit inside every other
+  // row's tolerance and a replicated curve would still be indistinguishable.
+  // At 2,000 trials the width is 0.121 while sampling noise is about 0.022 —
+  // five standard deviations of headroom for an honest run, and far too narrow
+  // for a row copied from a different q. q = 32 rather than 16 so that two rows
+  // carry that separation, not one.
+  const requestedTrials = 2_000;
   await openTab(page, 'PRP / PRF');
   await setNumber(page, '#switch-bits', '8');
-  await setNumber(page, '#switch-queries', '16');
-  await setNumber(page, '#switch-trials', '200');
+  await setNumber(page, '#switch-queries', '32');
+  await setNumber(page, '#switch-trials', String(requestedTrials));
   await page.locator('#switch-run').click();
-  await expect(page.locator('#switch-status')).toContainText('Fresh switching curve');
+  await expect(page.locator('#switch-status')).toContainText('Fresh switching curve', { timeout: 90_000 });
 
   // n and q come from the controls under test, never from a literal: a literal
   // is correct only at the one setting it was written for, and the whole point
@@ -805,7 +840,65 @@ test('the switching rows claim matches the bound recomputed at the chosen n', as
       wilson(wins!, trials!).estimate,
       3,
     );
+
+    // ── Fix 4: bind the row to ITS OWN run ────────────────────────────────
+    //
+    // Everything above this line is satisfied by a row that was copied from
+    // another q and had its q and bound corrected: internal consistency is a
+    // property a replica inherits. These three are not.
+    //
+    // "M trials each" is a claim about this row, so this row's own denominator
+    // has to be M.
+    expect(trials, `row ${index} reports a trial count the caption does not claim`).toBe(requestedTrials);
+    expect(wins, `row ${index} reports more wins than it ran trials`).toBeLessThanOrEqual(trials!);
+
+    // And the measurement itself has to be THIS q's measurement. The predicted
+    // advantage at q is the birthday collision probability at q; it rises from
+    // 0.004 to 0.868 across this curve, so a row carrying another q's number is
+    // outside its own rendered tolerance by a wide margin, while an honest row
+    // sits about five sampling standard deviations inside it.
+    const tolerance = Number(cells[5]!.replace('±', '').trim());
+    const predicted = exactCollisionProbability(bits, q);
+    expect(
+      Math.abs(Number(cells[2]) - predicted),
+      `row ${index} measured ${cells[2]} at q = ${q}, where a run of ${trials} trials predicts ` +
+        `${predicted.toFixed(4)} — outside this row's own rendered tolerance of ± ${tolerance}. ` +
+        'A row whose number was measured at a different q is not a measurement of this q, however ' +
+        'consistent it is with itself.',
+    ).toBeLessThanOrEqual(tolerance);
   }
+
+  // The caption is the sentence the rows are evidence for, so both of its
+  // numbers are read back out of it and checked against the table: the count of
+  // rows, and the denominator every one of those rows reported. The page
+  // formats them with the browser's locale, so they are parsed rather than
+  // rebuilt — Node's default locale is not the browser's to assume.
+  const caption = (await page.locator('#switch-status').textContent()) ?? '';
+  const captionNumbers = caption.match(/^Fresh switching curve: ([\d,]+) q values, ([\d,]+) trials each\.$/);
+  expect(captionNumbers, `the caption is not the sentence these rows are evidence for: "${caption}"`).not.toBeNull();
+  expect(
+    Number(captionNumbers![1]!.replaceAll(',', '')),
+    'the caption counts q values the table did not measure',
+  ).toBe(rows.length);
+  expect(
+    Number(captionNumbers![2]!.replaceAll(',', '')),
+    'the caption claims a per-point trial count no row reported',
+  ).toBe(requestedTrials);
+
+  // The exhibit's whole teaching is that the advantage rises with q. A curve
+  // that does not rise is not this exhibit, whatever each row says about
+  // itself, so the claim is asserted rather than assumed from the prose beside
+  // it — and the threshold is half the predicted rise rather than a literal, so
+  // it keeps meaning the same thing at another n or another q.
+  const measured: number[] = [];
+  for (const row of rows) measured.push(Number((await row.locator('td').allTextContents())[2]));
+  const predictedRise =
+    exactCollisionProbability(bits, expectedQ.at(-1)!) - exactCollisionProbability(bits, expectedQ[0]!);
+  expect(
+    measured.at(-1)! - measured[0]!,
+    `the curve did not rise across q — a prediction of +${predictedRise.toFixed(4)} against measured ` +
+      `${JSON.stringify(measured)}`,
+  ).toBeGreaterThan(predictedRise / 2);
 });
 
 test('the switching chart claim spans the same points as the table', async ({ page }) => {

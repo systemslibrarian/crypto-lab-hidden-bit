@@ -18,7 +18,29 @@
     "merely mentions a marker id is not a spec that asserts it. A marker",
     "reachable only on a failure path carries rendersOnlyUnderMutation: true, and",
     "the spec then requires it to be ABSENT from the healthy page, so the flag",
-    "cannot be used to hide a verdict that really does render."
+    "cannot be used to hide a verdict that really does render.",
+    "D6: 'goes through the shared helper' is judged at RUNTIME, not by reading",
+    "spec source. Each helper writes the (test title, marker id) pair it actually",
+    "EXECUTES to a run-scoped sink, and e2e/global-teardown.ts fails the run when",
+    "a record's pair never appeared. A commented-out call leaves text and no",
+    "line; a call moved to another test of the same file appears under another",
+    "title. Neither satisfies the rule any more.",
+    "asserts: the (text, state) pairs the killing test must pass to expectVerdict",
+    "for that marker, IN ORDER - every one of them, and nothing else. Recording",
+    "the pair proves the helper ran; it cannot tell a real expectation from one",
+    "the test read off the page a line earlier, because both execute. The pin",
+    "makes the argument come from somewhere other than the marker under test, so",
+    "a page-derived argument becomes the MUTATED text under the recorded",
+    "mutation, stops matching, and fails inside the marker's own test. Order",
+    "rather than membership: a killing test that walks two branches hands over",
+    "two pairs, and under a mutation that merely SWAPS the branches a",
+    "page-derived argument hands back the same two pairs the other way round,",
+    "which a set comparison cannot see. Verdict records",
+    "only: a data-claim oracle's expectation is recomputed from the run (a Wilson",
+    "interval, an exact collision probability) and there is no honest literal to",
+    "pin, so a tautological CLAIM oracle is caught by the mutation sweep rather",
+    "than by the coverage rule. That limit is stated in README.md rather than",
+    "left to be discovered."
   ],
   "port": 4667,
   "mutations": [
@@ -26,6 +48,9 @@
       "id": "kat-vector",
       "marker": "kat",
       "family": "verdict",
+      "asserts": [
+        { "text": "Instruments agree", "state": "pass" }
+      ],
       "file": "src/kats.ts",
       "find": "const aesExpected = '69c4e0d86a7b0430d8cdb78070b4c55a';",
       "replace": "const aesExpected = '00000000000000000000000000000000';",
@@ -38,6 +63,9 @@
       "id": "cpa-verdict-never-alarms",
       "marker": "cpa",
       "family": "verdict",
+      "asserts": [
+        { "text": "BROKEN: ADVANTAGE", "state": "alarm" }
+      ],
       "file": "src/ui/cpa.ts",
       "find": "      } else if (estimate.low > 0) {",
       "replace": "      } else if (false) {",
@@ -49,6 +77,9 @@
       "id": "negative-title-pinned",
       "marker": "cpa-negative",
       "family": "verdict",
+      "asserts": [
+        { "text": "NO ADVANTAGE FOUND BY THESE ADVERSARIES — AND THE SCHEME IS BROKEN", "state": "alarm" }
+      ],
       "file": "src/ui/cpa.ts",
       "find": "      const promoted = flatlines.has('random') && flatlines.has('reencrypt');",
       "replace": "      const promoted = false;",
@@ -73,6 +104,10 @@
       "id": "challenge-refusal-unreported",
       "marker": "cca-boundary",
       "family": "verdict",
+      "asserts": [
+        { "text": "EXACT CHALLENGE REFUSED", "state": "pass" },
+        { "text": "EXACT CHALLENGE REFUSED", "state": "pass" }
+      ],
       "file": "src/game/cca.ts",
       "find": "        exactChallengeRejected = error instanceof ExactChallengeError;",
       "replace": "        exactChallengeRejected = false;",
@@ -85,6 +120,10 @@
       "id": "cca-verdict-never-alarms",
       "marker": "cca",
       "family": "verdict",
+      "asserts": [
+        { "text": "BROKEN: ADVANTAGE", "state": "alarm" },
+        { "text": "NO ADVANTAGE FOUND BY THIS ADVERSARY", "state": "neutral" }
+      ],
       "file": "src/ui/cca.ts",
       "find": "    if (result.interval[0] > 0) {",
       "replace": "    if (false) {",
@@ -96,6 +135,10 @@
       "id": "forgery-verdict-inverted",
       "marker": "forgery",
       "family": "verdict",
+      "asserts": [
+        { "text": "FORGED:", "state": "alarm" },
+        { "text": "REJECTED", "state": "pass" }
+      ],
       "file": "src/ui/forgery.ts",
       "find": "      if (result.alarm) {",
       "replace": "      if (!result.alarm) {",
@@ -107,6 +150,9 @@
       "id": "plain-verifier-enforces-low-s",
       "marker": "forgery-plain",
       "family": "verdict",
+      "asserts": [
+        { "text": "PLAIN VERIFIER: ACCEPTED", "state": "alarm" }
+      ],
       "file": "src/schemes/ecdsa.ts",
       "find": "    prehash: true,\n    lowS: false,\n    format: 'compact',\n  });",
       "replace": "    prehash: true,\n    lowS: true,\n    format: 'compact',\n  });",
@@ -118,6 +164,9 @@
       "id": "low-s-verifier-admits-high-s",
       "marker": "forgery-lows",
       "family": "verdict",
+      "asserts": [
+        { "text": "LOW-S VERIFIER: REJECTED", "state": "pass" }
+      ],
       "file": "src/schemes/ecdsa.ts",
       "find": "  return secp256k1.verify(signature, message, publicKey);",
       "replace": "  return secp256k1.verify(signature, message, publicKey, { lowS: false });",
@@ -129,6 +178,9 @@
       "id": "switching-bound-check-pinned",
       "marker": "switching",
       "family": "verdict",
+      "asserts": [
+        { "text": "ALL MEASURED POINTS STAY WITHIN BOUND", "state": "pass" }
+      ],
       "file": "src/prf/switching.ts",
       "find": "    withinTolerance: estimate.estimate <= bound + tolerance,",
       "replace": "    withinTolerance: false,",
@@ -140,6 +192,9 @@
       "id": "reduction-relation-pinned",
       "marker": "reduction",
       "family": "verdict",
+      "asserts": [
+        { "text": "PRESERVES THE EXPECTED FACTOR", "state": "pass" }
+      ],
       "file": "src/reduction/ddh.ts",
       "find": "    relationHolds: Math.abs(bAdvantage - expectedB) <= relationTolerance,",
       "replace": "    relationHolds: false,",
@@ -256,6 +311,18 @@
       "spec": "e2e/verdicts.spec.ts",
       "grep": "the switching rows claim matches the bound recomputed at the chosen n",
       "why": "Doubles the rendered switching bound, so the column stops being q(q - 1) / 2^(n + 1) at the n the control is set to."
+    },
+    {
+      "id": "curve-replicates-one-measurement",
+      "marker": "switch-rows",
+      "family": "claim",
+      "file": "src/ui/switching.ts",
+      "find": "      const points: SwitchingPoint[] = [];\n      for (const pointQ of queryValues(q)) {\n        points.push(runSwitchingPoint(n, pointQ, count));\n",
+      "replace": "      const points: SwitchingPoint[] = [];\n      for (const pointQ of queryValues(q)) {\n        const measuredOnce = points[0] ?? runSwitchingPoint(n, pointQ, count);\n        const replicatedBound = (pointQ * (pointQ - 1)) / (2 * 2 ** n);\n        points.push({ ...measuredOnce, queries: pointQ, bound: replicatedBound, withinTolerance: measuredOnce.measured <= replicatedBound + measuredOnce.tolerance });\n",
+      "spec": "e2e/verdicts.spec.ts",
+      "grep": "the switching rows claim matches the bound recomputed at the chosen n",
+      "why": "Measures the FIRST q point and copies it into every later row, correcting only the columns a row-local oracle would notice: queries, bound, and the within-tolerance flag derived from them. Every row then satisfies its own internal consistency by construction — measured IS the Wilson estimate of its own wins/trials, because it is the same row — while the caption above still reads \"N q values, M trials each\" and the exhibit still teaches advantage rising with q. This is the shape the 2026-09-21 audit found alive at 35/35 green: the oracle checked each row against itself and nothing bound a row to its own run. It is killed by comparing each row's measured advantage with the per-q prediction exactFunctionCollisionProbability(n, q) recomputed in the spec, within that row's own rendered tolerance.",
+      "scope": "Deliberately leaves the trial ledgers alone: the auditor confirmed those are genuine per-trial sums by mutating src/game/challenger.ts so one trial stops contributing, which kills. The defect this records is in what the CURVE binds together, not in how a point is counted."
     },
     {
       "id": "chart-label-ends-where-it-starts",

@@ -1,4 +1,6 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
+import { REGISTRY, recordNames, requiredHelper } from './mutation-registry';
+import { record, specPath } from './observations';
 
 /**
  * Marker coverage is derived from the RENDERED PAGE, never from a hand-kept
@@ -121,6 +123,113 @@ export async function renderedMarkers(page: Page, family: MarkerFamily = 'verdic
 }
 
 /**
+ * Which tests actually ran, and how they ended.
+ *
+ * Registered here rather than in each spec so that importing the shared marker
+ * helpers is enough to be counted, and registered HERE rather than in
+ * observations.ts because that module is also read by `global-teardown.ts` in
+ * the main process, where a hook registration at module scope throws.
+ *
+ * The teardown needs this to tell "the test ran and never called the helper" (a
+ * failure) from "the test was not part of this run" (not a failure). Without
+ * the distinction, every `--grep`'d single-test run mutations/run.mjs makes
+ * would fail the suite-wide coverage rule, and the rule would be switched off
+ * within a day.
+ */
+test.afterEach(async ({}, info) => {
+  record({
+    kind: 'ran',
+    test: info.title,
+    spec: specPath(info.file),
+    attempt: info.retry,
+    status: info.status ?? 'unknown',
+  });
+});
+
+/**
+ * How many times each marker's helper has already run in this test attempt.
+ *
+ * Keyed by attempt as well as title because a retry is a second, independent
+ * sequence: without that the retry's first call would be read as the original's
+ * third, and the pinned sequence below would mismatch on a flake rather than on
+ * a defect. A worker runs one test at a time, so a module-level map is the
+ * right scope here — unlike the observation sink, which has to cross processes.
+ */
+const callCount = new Map<string, number>();
+
+function nextIndex(key: string): number {
+  const seen = callCount.get(key) ?? 0;
+  callCount.set(key, seen + 1);
+  return seen;
+}
+
+/**
+ * D6 — the pair a helper EXECUTES, written down at the moment it executes.
+ *
+ * `global-teardown.ts` reads these back after the whole run and fails it when a
+ * mutation record's pair never appeared. A call that is commented out, or moved
+ * into a different test, produces no line here; there is nothing a source scan
+ * could be shown instead. See e2e/observations.ts for why the sink is a file.
+ */
+function observe(
+  helper: 'expectVerdict' | 'expectNoVerdict' | 'readClaim',
+  marker: string,
+  expected?: { readonly text: string | RegExp; readonly state: string },
+): number {
+  const info = test.info();
+  const index = nextIndex(JSON.stringify([info.file, info.title, info.retry, helper, marker]));
+  record({
+    kind: 'asserted',
+    test: info.title,
+    spec: specPath(info.file),
+    attempt: info.retry,
+    helper,
+    marker,
+    index,
+    ...(expected === undefined
+      ? {}
+      : { text: expected.text instanceof RegExp ? `/${expected.text.source}/` : expected.text, state: expected.state }),
+  });
+  return index;
+}
+
+/**
+ * The pin that closes escape 2 — the tautological call.
+ *
+ * Recording the pair proves the helper RAN. It cannot prove the helper was
+ * given a real expectation: a test that reads the marker's own text and state a
+ * line earlier and hands them straight back executes the same pair and compares
+ * the page with itself. So when a mutation record names THIS test and THIS
+ * marker, the expectation the caller passed must be the `asserts` entry pinned
+ * at this POSITION in mutations/registry.json.
+ *
+ * Position, not membership, and that distinction is the whole rule. A killing
+ * test that walks two branches — the alarm one, then the pass one — hands the
+ * helper two pairs. Under a mutation that INVERTS the branch, a page-derived
+ * argument hands back exactly the same two pairs in the opposite order, so a
+ * set comparison sees nothing wrong and the escape survives. An ordered
+ * comparison fails on the first call, inside the marker's own test, which is
+ * where mutations/run.mjs requires a kill to land.
+ *
+ * A rewritten-but-honest expectation fails too, loudly, and the fix is to
+ * re-pin it — a reviewed edit to the record rather than a silent one to the
+ * spec.
+ */
+function pinnedFor(marker: string): readonly { readonly text: string; readonly state: string }[] | null {
+  const info = test.info();
+  const spec = specPath(info.file);
+  const owning = REGISTRY.mutations.filter(
+    (entry) =>
+      entry.marker === marker &&
+      requiredHelper(entry) === 'expectVerdict' &&
+      recordNames(entry, spec, info.title) &&
+      entry.asserts !== undefined,
+  );
+  if (owning.length === 0) return null;
+  return owning.flatMap((entry) => entry.asserts ?? []);
+}
+
+/**
  * Fix 1 — a marker's TEXT and its STATE are ONE claim, so one helper asserts
  * both and every recorded kill goes through it.
  *
@@ -145,6 +254,22 @@ export async function expectVerdict(
   id: string,
   expected: { readonly text: string | RegExp; readonly state: string },
 ): Promise<void> {
+  const index = observe('expectVerdict', id, expected);
+  const pinned = pinnedFor(id);
+  if (pinned !== null) {
+    const asserted = { text: String(expected.text), state: expected.state };
+    const want = pinned[index];
+    expect(
+      want !== undefined && want.text === asserted.text && want.state === asserted.state,
+      `this test is the recorded kill for verdict marker "${id}", so call #${index + 1} to expectVerdict must pass ` +
+        `the pair pinned at that position in mutations/registry.json. It passed ${JSON.stringify(asserted)}; the ` +
+        `pin there is ${want === undefined ? '(nothing — the record pins only ' + pinned.length + ' call(s))' : JSON.stringify(want)}. ` +
+        'An expectation read off the page under test is not an expectation: it makes the call tautological, and ' +
+        'under a mutation that merely SWAPS two branches it hands back the same pairs in the opposite order — ' +
+        'which is why the pin is positional rather than a set.',
+    ).toBe(true);
+  }
+
   const marker = page.locator(`[data-verdict="${id}"]`);
   await expect(marker, `verdict marker "${id}" is not rendered exactly once`).toHaveCount(1);
   await expect(marker, `verdict marker "${id}" rendered the wrong text`).toContainText(expected.text);
@@ -190,6 +315,7 @@ export async function expectVerdict(
  * markers go through this instead of expectVerdict.
  */
 export async function expectNoVerdict(page: Page, id: string): Promise<void> {
+  observe('expectNoVerdict', id);
   await expect(
     page.locator(`[data-verdict="${id}"]`),
     `verdict marker "${id}" is declared reachable only under mutation, but the page rendered it`,
@@ -220,6 +346,7 @@ export interface Claim {
  * rendering of the same number.
  */
 export async function readClaim(page: Page, id: string): Promise<Claim> {
+  observe('readClaim', id);
   const marker = page.locator(`[data-claim="${id}"]`);
   await expect(marker, `claim marker "${id}" is not rendered exactly once`).toHaveCount(1);
   return marker.evaluate((element) => {
