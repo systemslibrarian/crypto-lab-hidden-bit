@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { expect, test, type Page } from '@playwright/test';
 import { REGISTRY, family, requiredHelper } from './mutation-registry';
+import { SWITCHING_BITS, SWITCHING_QUERIES, SWITCHING_TRIALS } from './switching-params';
 import {
   claimField,
   expectNoVerdict,
@@ -803,10 +804,10 @@ test('the switching rows claim matches the bound recomputed at the chosen n', as
   // five standard deviations of headroom for an honest run, and far too narrow
   // for a row copied from a different q. q = 32 rather than 16 so that two rows
   // carry that separation, not one.
-  const requestedTrials = 2_000;
+  const requestedTrials = SWITCHING_TRIALS;
   await openTab(page, 'PRP / PRF');
-  await setNumber(page, '#switch-bits', '8');
-  await setNumber(page, '#switch-queries', '32');
+  await setNumber(page, '#switch-bits', SWITCHING_BITS);
+  await setNumber(page, '#switch-queries', SWITCHING_QUERIES);
   await setNumber(page, '#switch-trials', String(requestedTrials));
   await page.locator('#switch-run').click();
   await expect(page.locator('#switch-status')).toContainText('Fresh switching curve', { timeout: 90_000 });

@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
 import { expectVerdict, readClaim } from './verdict-audit';
+import { SWITCHING_BITS, SWITCHING_QUERIES, SWITCHING_TRIALS } from './switching-params';
 
 const SECP_P = 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2fn;
 const SECP_N = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;
@@ -244,11 +245,15 @@ test('displayed textbook RSA forgeries verify on unqueried messages', async ({ p
 
 test('switching rows match the formula and stay under bound plus tolerance', async ({ page }) => {
   await openTab(page, 'PRP / PRF');
-  await page.locator('#switch-bits').fill('8');
-  await page.locator('#switch-queries').fill('20');
-  await page.locator('#switch-trials').fill('200');
+  await page.locator('#switch-bits').fill(SWITCHING_BITS);
+  await page.locator('#switch-queries').fill(SWITCHING_QUERIES);
+  await page.locator('#switch-trials').fill(String(SWITCHING_TRIALS));
   await page.locator('#switch-run').click();
-  await expect(page.locator('#switch-status')).toContainText('Fresh switching curve');
+  // The curve now runs at the shared parameters, which is real work: the default
+  // assertion timeout was written for a far lighter run and expires under load.
+  await expect(page.locator('#switch-status')).toContainText('Fresh switching curve', {
+    timeout: 90_000,
+  });
   const rows = page.locator('#switch-rows tr');
   expect(await rows.count()).toBeGreaterThan(1);
   // n is read back from the control, never written as a literal: 2 ** 9 is
