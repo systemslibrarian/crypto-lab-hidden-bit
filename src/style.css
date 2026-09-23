@@ -392,6 +392,12 @@ body {
 .negative-fixture { margin-top: 1rem; padding: 1rem; border: 1px dashed var(--warning); background-color: var(--warning-bg); }
 .negative-fixture h3 { margin: 0 0 .35rem; font-family: var(--display); font-size: 1.1rem; }
 .negative-fixture p { margin: 0; color: var(--text-dim); font-size: .72rem; line-height: 1.55; }
+/* The promoted negative headline is a verdict, so its STATE has to be visible
+   and not only readable. e2e/verdict-audit.ts's expectVerdict proves the tone
+   actually paints — a data-tone nothing paints is a state the reader cannot
+   see, and then the words would be carrying the whole claim alone. */
+.negative-title { border-left: 3px solid transparent; padding-left: .5rem; }
+.negative-title[data-tone='alarm'] { border-left-color: var(--alarm); }
 .fixture-checks { display: flex; flex-wrap: wrap; gap: .45rem; margin-top: .65rem; }
 .fixture-chip { padding: .3rem .5rem; border: 1px solid var(--border-strong); border-radius: 3px; color: var(--text-muted); font-size: .62rem; }
 .fixture-chip[data-done='true'] { border-color: var(--ok); color: var(--ok-ink); background-color: var(--ok-bg); }
