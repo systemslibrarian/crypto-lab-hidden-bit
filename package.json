@@ -22,12 +22,12 @@
     "@fontsource-variable/newsreader": "^5.2.6",
     "@noble/ciphers": "^2.4.0",
     "@noble/curves": "^2.4.0",
-    "lucide": "^1.46.0"
+    "lucide": "^1.47.0"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.10.2",
     "@playwright/test": "^1.61.1",
-    "@types/node": "^26.5.1",
+    "@types/node": "^26.6.2",
     "@vitest/coverage-v8": "^5.0.1",
     "typescript": "^7.0.2",
     "vite": "^8.3.0",
