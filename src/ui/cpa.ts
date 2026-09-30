@@ -76,7 +76,7 @@ function panelMarkup(schemes: Map<string, CpaScheme>): string {
       <section class="actor" aria-labelledby="challenger-title">
         <div class="actor-label"><span>CHALLENGER</span><span id="cpa-scheme-badge">RSA-OAEP</span></div>
         <h3 id="challenger-title">Seal the coin</h3>
-        <div class="coin-wrap"><div id="cpa-coin" class="coin" role="img" data-open="false" aria-label="Hidden bit is sealed">?</div></div>
+        <div class="coin-wrap"><div id="cpa-coin" class="coin" role="img" data-claim="cpa-coin" data-open="false" aria-label="Hidden bit is sealed">?</div></div>
         <div id="cpa-ciphertext" class="actor-readout">Waiting to encrypt one of two equal-length messages.</div>
       </section>
       <div class="oracle-lane" aria-hidden="true">
@@ -98,8 +98,8 @@ function panelMarkup(schemes: Map<string, CpaScheme>): string {
 
     <div class="metrics-grid">
       <section class="advantage-panel" aria-labelledby="advantage-title">
-        <div class="metric-label"><span id="advantage-title">MEASURED ADVANTAGE</span><span id="cpa-interval">Wilson 95% interval: —</span></div>
-        <div id="cpa-advantage" class="metric-value" data-testid="cpa-advantage" data-value="0">0.000</div>
+        <div class="metric-label"><span id="advantage-title">MEASURED ADVANTAGE</span><span id="cpa-interval" data-claim="cpa-interval">Wilson 95% interval: —</span></div>
+        <div id="cpa-advantage" class="metric-value" data-claim="cpa-advantage" data-testid="cpa-advantage" data-value="0">0.000</div>
         <div class="advantage-track" role="meter" aria-label="Measured adversary advantage" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0">
           <div id="cpa-advantage-fill" class="advantage-fill"></div>
         </div>
@@ -110,13 +110,13 @@ function panelMarkup(schemes: Map<string, CpaScheme>): string {
       </section>
       <section class="ledger-panel" aria-labelledby="ledger-title">
         <div class="metric-label"><span id="ledger-title">TRIAL LEDGER</span><span>wins + losses + errors = trials</span></div>
-        <div class="ledger">
+        <div class="ledger" data-claim="cpa-ledger">
           <div><span>Wins</span><strong id="cpa-wins" data-testid="cpa-wins">0</strong></div>
           <div><span>Losses</span><strong id="cpa-losses" data-testid="cpa-losses">0</strong></div>
           <div><span>Errors</span><strong id="cpa-errors" data-testid="cpa-errors">0</strong></div>
           <div><span>Trials</span><strong id="cpa-total" data-testid="cpa-total">0</strong></div>
         </div>
-        <div class="histogram" role="img" aria-label="Win and loss histogram">
+        <div class="histogram" role="img" aria-label="Win and loss histogram" data-claim="cpa-rates">
           <span>Win</span><div class="hist-track"><div id="cpa-win-bar" class="hist-fill wins"></div></div><span id="cpa-win-rate">0%</span>
           <span>Loss</span><div class="hist-track"><div id="cpa-loss-bar" class="hist-fill"></div></div><span id="cpa-loss-rate">0%</span>
         </div>
@@ -125,7 +125,7 @@ function panelMarkup(schemes: Map<string, CpaScheme>): string {
     </div>
 
     <section id="cbc-negative" class="negative-fixture" data-testid="cbc-negative" hidden>
-      <h3 id="cbc-negative-title" data-verdict="cpa-negative">A flat line is not a verdict</h3>
+      <h3 id="cbc-negative-title" class="negative-title" data-verdict="cpa-negative" data-tone="neutral">A flat line is not a verdict</h3>
       <p><strong>A measured advantage near zero shows that these adversaries failed; it is not evidence that the scheme is IND-CPA secure.</strong> Chained-IV CBC is broken even when random guessing and re-encryption both miss the defect.</p>
       <div class="fixture-checks" role="group" aria-label="Negative claim evidence">
         <span id="fixture-random" class="fixture-chip">Random guess run</span>
@@ -180,10 +180,15 @@ export async function initCpa(): Promise<void> {
       negative.hidden = schemeSelect.value !== 'aes-cbc-chained';
       query<HTMLElement>('#fixture-random', panel).dataset.done = String(flatlines.has('random'));
       query<HTMLElement>('#fixture-reencrypt', panel).dataset.done = String(flatlines.has('reencrypt'));
-      query<HTMLElement>('#cbc-negative-title', panel).textContent =
-        flatlines.has('random') && flatlines.has('reencrypt')
-          ? 'NO ADVANTAGE FOUND BY THESE ADVERSARIES — AND THE SCHEME IS BROKEN'
-          : 'A flat line is not a verdict';
+      // The headline and the tone are ONE claim: two genuine flat lines promote
+      // both, and e2e/verdict-audit.ts's expectVerdict asserts them together, so
+      // a mutation cannot flip the words while the marker stays neutral.
+      const promoted = flatlines.has('random') && flatlines.has('reencrypt');
+      const negativeTitle = query<HTMLElement>('#cbc-negative-title', panel);
+      negativeTitle.dataset.tone = promoted ? 'alarm' : 'neutral';
+      negativeTitle.textContent = promoted
+        ? 'NO ADVANTAGE FOUND BY THESE ADVERSARIES — AND THE SCHEME IS BROKEN'
+        : 'A flat line is not a verdict';
     };
 
     const renderResult = (next: ExperimentResult): void => {

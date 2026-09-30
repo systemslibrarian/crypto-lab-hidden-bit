@@ -45,13 +45,13 @@ function markup(): string {
     <div class="result-grid">
       <section class="result-block">
         <h3>A inside the IND-CPA game</h3>
-        <div id="reduction-a" class="metric-value" data-testid="reduction-a" data-value="0">0.000</div>
+        <div id="reduction-a" class="metric-value" data-claim="reduction-a" data-testid="reduction-a" data-value="0">0.000</div>
         <p>Measured absolute IND-CPA advantage from real ristretto255 ElGamal trials.</p>
       </section>
       <section class="result-block">
         <h3>B inside the DDH game</h3>
-        <div id="reduction-b" class="metric-value" data-testid="reduction-b" data-value="0">0.000</div>
-        <dl class="value-list">
+        <div id="reduction-b" class="metric-value" data-claim="reduction-b" data-testid="reduction-b" data-value="0">0.000</div>
+        <dl class="value-list" data-claim="reduction-relation">
           <div class="value-row"><dt>A / 2</dt><dd id="reduction-expected" data-testid="reduction-expected">0.000</dd></div>
           <div class="value-row"><dt>Displayed tolerance</dt><dd id="reduction-tolerance" data-testid="reduction-tolerance">± 0.000</dd></div>
         </dl>

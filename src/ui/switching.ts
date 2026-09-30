@@ -48,7 +48,7 @@ function markup(): string {
           <li role="listitem" data-step="3">With no collision, guess ideal permutation.</li>
         </ol>
         <div class="formula-note">
-          <i data-lucide="flask-conical"></i><div><strong>AT n = 128</strong><p id="switch-scaled">For q = 48, the switching bound is 2256 / 2^129.</p></div>
+          <i data-lucide="flask-conical"></i><div><strong>AT n = 128</strong><p id="switch-scaled" data-claim="switch-scaled">For q = 48, the switching bound is 2256 / 2^129.</p></div>
         </div>
       </section>
       <section class="result-block">
@@ -60,13 +60,13 @@ function markup(): string {
       </section>
     </div>
     <div class="chart-wrap">
-      <svg id="switch-chart" class="switch-chart" role="img" aria-label="No switching measurements yet" viewBox="0 0 640 250"></svg>
+      <svg id="switch-chart" class="switch-chart" role="img" data-claim="switch-chart" aria-label="No switching measurements yet" viewBox="0 0 640 250"></svg>
       <div class="chart-legend"><span><i class="legend-swatch"></i>Measured advantage</span><span><i class="legend-swatch bound"></i>Switching bound</span></div>
     </div>
     <div class="table-scroll" role="region" aria-label="Switching measurements" tabindex="0">
       <table>
         <thead><tr><th>q</th><th>Wins / trials</th><th>Measured advantage</th><th>Bound</th><th>Wilson 95%</th><th>Alarm tolerance</th></tr></thead>
-        <tbody id="switch-rows"><tr><td colspan="6">Run the curve to populate independently checkable values.</td></tr></tbody>
+        <tbody id="switch-rows" data-claim="switch-rows"><tr><td colspan="6">Run the curve to populate independently checkable values.</td></tr></tbody>
       </table>
     </div>
     <details class="guard-rails">

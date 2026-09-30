@@ -75,11 +75,11 @@ npm run test:a11y
 npm run test:mutations
 ```
 
-The unit gate contains **77 tests** in 11 files. It includes **3 published known-answer cases**: FIPS 197 AES-128, RFC 6979 P-256 ECDSA, and RFC 8032 Ed25519. Coverage is measured over the cryptographic and game logic only — `src/game/`, `src/schemes/`, `src/adversaries/`, `src/prf/`, `src/reduction/` and `src/kats.ts` — because that is the code whose correctness the claims rest on; the presentation layer (`src/ui/`, `src/main.ts`) is excluded from the measurement and is covered instead by the 12 browser tests below. Over that scope the enforced baseline is 90% statements, 80% branches, 90% functions, and 90% lines; the final measured result is 93.62%, 83.4%, 93.13%, and 96.66%, respectively.
+The unit gate contains **77 tests** in 11 files. It includes **3 published known-answer cases**: FIPS 197 AES-128, RFC 6979 P-256 ECDSA, and RFC 8032 Ed25519. Coverage is measured over the cryptographic and game logic only — `src/game/`, `src/schemes/`, `src/adversaries/`, `src/prf/`, `src/reduction/` and `src/kats.ts` — because that is the code whose correctness the claims rest on; the presentation layer (`src/ui/`, `src/main.ts`) is excluded from the measurement and is covered instead by the 37 browser tests below. Over that scope the enforced baseline is 90% statements, 80% branches, 90% functions, and 90% lines; the final measured result is 93.62%, 83.4%, 93.13%, and 96.66%, respectively.
 
-The Playwright gate contains **21 browser tests** in 3 files: 10 truth and workflow claims (`e2e/claims.spec.ts`), including independent raw-RSA modular exponentiation and secp256k1 point arithmetic; 9 verdict-coverage and verdict-branching tests (`e2e/verdicts.spec.ts`); and 2 WCAG state walks (`e2e/a11y.spec.ts`). It builds before serving, drives real controls at desktop and 380 px, requires zero WCAG 2.1 A/AA violations, inspects axe's incomplete bucket, and independently checks text contrast, control-boundary contrast, reduced motion, reflow, focus targets, scroll regions, and hidden states.
+The Playwright gate contains **37 browser tests** in 3 files: 10 truth and workflow claims (`e2e/claims.spec.ts`), including independent raw-RSA modular exponentiation and secp256k1 point arithmetic; 25 marker-coverage and marker-branching tests (`e2e/verdicts.spec.ts`); and 2 WCAG state walks (`e2e/a11y.spec.ts`). It builds before serving, drives real controls at desktop and 380 px, requires zero WCAG 2.1 A/AA violations, inspects axe's incomplete bucket, and independently checks text contrast, control-boundary contrast, reduced motion, reflow, focus targets, scroll regions, and hidden states.
 
-### Every rendered verdict is measured, and every verdict is mutation-covered
+### Every rendered verdict and every rendered number is mutation-covered
 
 A verdict is real only when it can be forced false and something goes red. This
 lab shipped one that could not.
@@ -98,15 +98,67 @@ the opposite outcome.
 Coverage is derived by **walking the rendered page**, never from a list of
 exhibits, because a list is a self-report:
 
-- every rendered verdict carries a `data-verdict` marker;
-- `npm run test:verdicts` fails on a marker with no mutation in
-  `mutations/registry.json`, and fails on verdict words or verdict styling
-  rendered **outside** a marker — with a test that injects a raw unmarked banner
-  the way a careless builder would, so the check is known to be able to fail;
-- `npm run test:mutations` forces each of the 11 markers false in turn and
-  requires a **kill**: the unmutated baseline passing in the same run, and the
-  failure being that verdict's own assertion rather than a build error, a blank
-  page, a timeout, or the whole suite going red.
+- every rendered verdict carries a `data-verdict` marker and every rendered
+  measurement carries a `data-claim` marker. Both families are judged on the
+  same terms, because a number painted with no mutation behind it is exactly as
+  unchecked as a verdict painted with none — and it is the easier mistake to
+  make, since a number does not look like a claim;
+- `npm run test:verdicts` fails on a marker of either family with no mutation in
+  `mutations/registry.json`, and fails on verdict words, verdict styling **or a
+  measurement** rendered outside a marker — with a test that injects a raw
+  unmarked banner and a raw unmarked stat the way a careless builder would, so
+  the check is known to be able to fail;
+- a marker's text and its state are ONE claim. `expectVerdict` asserts the
+  words, the `data-tone`/`data-state` value, and — by flipping the attribute in
+  place and re-reading the computed painting — that the state is one the
+  stylesheet actually paints. A recorded kill that does not go through that
+  helper (or `readClaim`, for a measurement) fails the build: before this, the
+  rule asked only that the spec *mentioned* the marker id, and a mention is not
+  an assertion;
+- **that rule is enforced at runtime, not by reading spec source.** Requiring
+  the call as *text* was the same defect one level down, and it was defeated
+  three ways across this fleet's verdict-gated labs: comment the call out and
+  the text survives inside the comment; keep the call and feed it values read
+  off the page in the same test; leave an unrelated call elsewhere in the file.
+  So each helper now writes the `(test title, marker id)` pair it actually
+  **executes** to a run-scoped sink under `test-results/`, cleared at the start
+  of every run, and `e2e/global-teardown.ts` reads them back after the last test
+  and fails the run when a recorded mutation's pair never appeared. Where the
+  record pins `asserts`, the `(text, state)` the test passed must be the pair
+  pinned at that POSITION — which is what refuses an expectation read off the
+  page under test. Position rather than membership, because a killing test that
+  walks two branches hands the helper two pairs, and under a mutation that
+  merely *swaps* those branches a page-derived argument hands back the same two
+  pairs in the opposite order: a set comparison sees nothing wrong and the
+  escape survives. **The stated limit:** a `data-claim` oracle recomputes its
+  expectation from the run — a Wilson interval, an exact collision probability —
+  so there is no honest literal to pin for one, and a tautological *measurement*
+  oracle is caught by the mutation sweep reporting a survivor rather than by the
+  coverage rule;
+- **a measured row is bound to its own run, not only to itself.** The switching
+  table's oracle used to check each row's internal consistency — measured
+  advantage against the Wilson estimate of that row's own wins and trials — which
+  a row copied from another q satisfies by construction, because it is the same
+  row. Replicating one measurement across the whole curve, with only `q` and the
+  bound corrected, left the suite green while the page rendered identical rows
+  under *"N q values, M trials each"*. Each row is now also compared with the
+  birthday collision probability at ITS q, within that row's own rendered
+  tolerance, and both of the caption's numbers are read back out of the caption
+  and checked against the table. That mutation is recorded as
+  `curve-replicates-one-measurement`;
+- the walk that all of those rules enumerate over, `driveEveryState`, visits
+  **every option of every control that changes what renders** — each control on
+  its own, not the cross-product. Seven CPA schemes, three adversaries, five
+  signature tactics, both CCA2 schemes, both reduction adversaries, both ends of
+  n, the step and stop buttons, every refusal and every retirement. A state the
+  walk never reaches is outside the set the coverage rules judge, however
+  carefully those rules are written;
+- `npm run test:mutations` applies **27 recorded mutations across the 26
+  markers** — `switch-rows` carries two, because a doubled bound and a
+  replicated row are different defects — and requires a **kill** for each: the
+  unmutated baseline passing in the same run, and the failure being that
+  marker's own assertion rather than a build error, a blank page, a timeout, or
+  the whole suite going red.
 
 Every run sets `CI=1`, which turns off Playwright's `reuseExistingServer`, so no
 stale server on this lab's pinned port `4667` can answer for an unmutated
