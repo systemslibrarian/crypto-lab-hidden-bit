@@ -51,12 +51,12 @@ function markup(): string {
             <p id="ggm-repeat-result" class="ggm-result"></p>
           </section>
         </div>
+        <p class="ggm-sources">Sources:
+          <a href="https://www.wisdom.weizmann.ac.il/~/oded/ggm.html">Goldreich, Goldwasser, and Micali, <cite>How to Construct Random Functions</cite> (JACM 1986)</a>;
+          <a href="https://www.routledge.com/Introduction-to-Modern-Cryptography-Revised-Third-Edition/Katz-Lindell/p/book/9781032496795">Katz and Lindell, <cite>Introduction to Modern Cryptography</cite>, revised third edition (2025), §8.5</a>.
+        </p>
       </div>
       <p class="ggm-limit">The full GGM function takes 128 input bits; this three-level tree only displays eight paths. Here the output is the first bit of the 128-bit leaf state. The root is shown to the visitor, so this page is not a secret-key PRF test. Different-looking leaves in one run do not prove pseudorandomness; the security claim needs a secure underlying PRG and an appropriate secret seed.</p>
-      <p class="ggm-sources">Sources:
-        <a href="https://www.wisdom.weizmann.ac.il/~/oded/ggm.html">Goldreich, Goldwasser, and Micali, <cite>How to Construct Random Functions</cite> (JACM 1986)</a>;
-        <a href="https://www.routledge.com/Introduction-to-Modern-Cryptography-Revised-Third-Edition/Katz-Lindell/p/book/9781032496795">Katz and Lindell, <cite>Introduction to Modern Cryptography</cite>, revised third edition (2025), §8.5</a>.
-      </p>
     </section>
   `;
 }
