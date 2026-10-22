@@ -379,6 +379,17 @@
       "spec": "e2e/verdicts.spec.ts",
       "grep": "the reduction relation claim is half the measured A advantage",
       "why": "Breaks the displayed Adv(A) / 2 factor away from the displayed Adv(A), which is the one relation this exhibit exists to show."
+    },
+    {
+      "id": "ggm-expansion-repeats-block",
+      "marker": "ggm-tree",
+      "family": "claim",
+      "file": "src/prf/ggm.ts",
+      "find": "  inputs[inputs.length - 1] = 1;",
+      "replace": "  inputs[inputs.length - 1] = 0;",
+      "spec": "e2e/claims.spec.ts",
+      "grep": "GGM tree follows independent AES branches",
+      "why": "Makes both AES expansion blocks identical; the browser claim must disagree with independently evaluated AES-ECB for the chosen leaf."
     }
   ]
 }

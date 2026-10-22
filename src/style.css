@@ -429,6 +429,22 @@ td { color: var(--text-dim); }
 .legend-swatch { display: inline-block; width: 16px; height: 3px; margin-right: .35rem; vertical-align: middle; background-color: var(--accent-hover); }
 .legend-swatch.bound { background-color: var(--warning); }
 
+.ggm-extension { margin-top: 2.4rem; padding-top: 1.5rem; border-top: 2px solid var(--border-strong); }
+.ggm-controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; padding: .8rem 0; border-block: 1px solid var(--border); }
+.ggm-controls p, .ggm-limit, .ggm-sources { margin: 0; color: var(--text-dim); font-size: .72rem; line-height: 1.6; }
+.ggm-controls p { max-width: 60ch; }
+.ggm-root { margin: .9rem 0; overflow-wrap: anywhere; color: var(--text); font-size: .72rem; }
+.ggm-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.ggm-tree { max-width: 100%; overflow-x: auto; padding: .6rem; border: 1px solid var(--border); background-color: var(--surface-2); }
+.ggm-level { display: grid; grid-template-columns: repeat(var(--ggm-count), minmax(5.2rem, 1fr)); min-width: max-content; gap: .35rem; margin: .5rem 0; }
+.ggm-node { min-width: 0; min-height: 52px; padding: .35rem; border: 1px solid var(--border-strong); border-radius: 4px; background: var(--surface-3); color: var(--text); font: 500 .63rem/1.35 var(--mono); cursor: pointer; }
+.ggm-node strong, .ggm-node small, .ggm-node em { display: block; font-size: inherit; font-style: normal; }
+.ggm-node small { color: var(--text-dim); }
+.ggm-node em { color: var(--accent-hover); }
+.ggm-node[data-route='true'] { border-color: var(--accent-hover); background-color: var(--neutral-bg); }
+.ggm-result { overflow-wrap: anywhere; }
+.ggm-limit, .ggm-sources { margin-top: 1rem; }
+
 .reduction-pipeline { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: .7rem; align-items: stretch; padding: 1rem 0; }
 .reduction-node { min-width: 0; padding: 1rem; border: 1px solid var(--border); background-color: var(--bg-raised); }
 .reduction-node span { color: var(--accent-hover); font-size: .62rem; }
@@ -486,6 +502,7 @@ td { color: var(--text-dim); }
   .oracle-line { transform: rotate(90deg); width: 52px; }
   .metrics-grid,
   .result-grid,
+  .ggm-columns,
   .scope-columns,
   .guard-grid { grid-template-columns: 1fr; }
   .ledger { grid-template-columns: repeat(2, minmax(0, 1fr)); }

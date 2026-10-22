@@ -163,6 +163,9 @@ export async function driveAllStates(page: Page, viewport: string): Promise<void
   await page.locator('#switch-run').click();
   await expect(page.locator('#switch-status')).toContainText('Fresh switching curve');
   await scan(page, `${viewport} / switching chart and table`);
+  await page.locator('#ggm-randomize').click();
+  await page.locator('#ggm-repeat-tree [data-ggm-path="111"]').click();
+  await scan(page, `${viewport} / GGM tree with fresh seed and selected leaf`);
 
   await openTab(page, 'DDH reduction');
   await page.locator('#reduction-trials').fill('20');

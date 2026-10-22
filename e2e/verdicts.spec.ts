@@ -320,6 +320,10 @@ async function driveEveryState(
   await page.locator('#switch-run').click();
   await expect(page.locator('#switch-status')).toContainText('the cap is 2,000,000');
   await visit('exhibit 04, work cap refused');
+  await page.locator('#ggm-randomize').click();
+  await visit('exhibit 04, GGM seed refreshed');
+  await page.locator('#ggm-repeat-tree [data-ggm-path="111"]').click();
+  await visit('exhibit 04, GGM alternate leaf selected');
 
   // ── exhibit 05 · #reduction-adversary, every option, then #reduction-trials
   await openTab(page, 'DDH reduction');

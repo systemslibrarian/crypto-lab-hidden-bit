@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createCipheriv, createHash } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
 import { expectVerdict, readClaim } from './verdict-audit';
 import { SWITCHING_BITS, SWITCHING_QUERIES, SWITCHING_TRIALS } from './switching-params';
@@ -270,6 +270,41 @@ test('switching rows match the formula and stay under bound plus tolerance', asy
     expect(bound).toBeCloseTo((q * (q - 1)) / (2 * 2 ** bits), 5);
     expect(measured).toBeLessThanOrEqual(bound + tolerance + 0.0002);
   }
+});
+
+test('GGM tree follows independent AES branches and exposes the repeated-seed failure', async ({ page }) => {
+  await openTab(page, 'PRP / PRF');
+  await expect(page.locator('#ggm-extension')).toBeVisible();
+  await expect(page.locator('.ggm-sources a')).toHaveCount(2);
+  await page.locator('#ggm-aes-tree [data-ggm-path="111"]').click();
+  const claim = await readClaim(page, 'ggm-tree');
+  expect(claim.text).toContain('Selected path 111');
+
+  const hex = (await page.locator('#ggm-root').textContent())!.match(/0x([0-9a-f]{32})/)![1]!;
+  let state = Buffer.from(hex, 'hex');
+  for (const bit of '111') {
+    const input = Buffer.alloc(32);
+    input[31] = 1;
+    const cipher = createCipheriv('aes-128-ecb', state, null);
+    cipher.setAutoPadding(false);
+    const output = Buffer.concat([cipher.update(input), cipher.final()]);
+    state = Buffer.from(output.subarray(bit === '0' ? 0 : 16, bit === '0' ? 16 : 32));
+  }
+  const expected = `Selected path 111: state 0x${state.toString('hex')}; leaf bit ${state[0]! >>> 7}`;
+  await expect(page.locator('#ggm-aes-result')).toHaveText(expected);
+  await expect(page.locator('#ggm-repeat-result')).toHaveText(
+    `Selected path 111: state 0x${hex}; leaf bit ${Buffer.from(hex, 'hex')[0]! >>> 7}`,
+  );
+  const repeatedStates = await page.locator('#ggm-repeat-tree [data-ggm-path]').evaluateAll((nodes) =>
+    nodes.filter((node) => (node as HTMLElement).dataset.ggmPath?.length === 3)
+      .map((node) => node.getAttribute('aria-label')!.match(/state ([0-9a-f]{32})/)![1]),
+  );
+  expect(repeatedStates).toEqual(Array(8).fill(hex));
+
+  await page.locator('#ggm-randomize').click();
+  const newHex = (await page.locator('#ggm-root').textContent())!.match(/0x([0-9a-f]{32})/)![1]!;
+  expect(newHex).not.toBe(hex);
+  await expect(page.locator('#ggm-repeat-result')).toContainText(`state 0x${newHex}`);
 });
 
 test('DDH wrapper reports the stated factor within its displayed interval', async ({ page }) => {
