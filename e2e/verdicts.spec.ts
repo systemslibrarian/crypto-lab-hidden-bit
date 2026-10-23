@@ -343,6 +343,18 @@ async function driveEveryState(
   await page.locator('#reduction-run').click();
   await expect(page.locator('#reduction-status')).toContainText('Refused');
   await visit('exhibit 05, odd trial count refused');
+
+  // ── exhibit 06 · independently keyed toy opportunities ──────────────────
+  await openTab(page, 'Multi-key toy');
+  await visit('exhibit 06, default budget');
+  await page.locator('#multi-run').click();
+  await visit('exhibit 06, fresh tagged-leak game');
+  await setNumber(page, '#multi-users', '8');
+  await setNumber(page, '#multi-queries', '8');
+  await setNumber(page, '#multi-chance', '100');
+  await visit('exhibit 06, saturated ceiling');
+  await setNumber(page, '#multi-users', '0');
+  await visit('exhibit 06, invalid user count');
 }
 
 /**
@@ -992,4 +1004,23 @@ test('the reduction relation claim is half the measured A advantage', async ({ p
   const tolerance = claimField(relation, 'Displayed tolerance');
   expect(tolerance, 'the tolerance is not rendered as a ± width').toMatch(/^± [\d.]+$/);
   expect(Number(tolerance.replace('±', '').trim()), 'a tolerance must be a non-negative width').toBeGreaterThanOrEqual(0);
+});
+
+test('multi-key budget claim matches the independent Q epsilon ceiling', async ({ page }) => {
+  await openTab(page, 'Multi-key toy');
+  for (const [users, perUser, percent] of [[3, 4, 5], [8, 8, 3], [1, 1, 100]] as const) {
+    await setNumber(page, '#multi-users', String(users));
+    await setNumber(page, '#multi-queries', String(perUser));
+    await setNumber(page, '#multi-chance', String(percent));
+    const claim = await readClaim(page, 'multi-budget');
+    const Q = users * perUser;
+    const epsilon = percent / 100;
+    expect(claimField(claim, 'Total opportunities Q')).toBe(String(Q));
+    expect(claimField(claim, 'Exact toy advantage')).toBe(formatted(1 - (1 - epsilon) ** Q));
+    const independentCeiling = Math.min(1, Q * epsilon);
+    expect(claimField(claim, 'Union ceiling min(1,Qε)')).toBe(formatted(independentCeiling));
+    expect(Number(claim.value)).toBeCloseTo(independentCeiling, 12);
+  }
+  await page.locator('#multi-run').click();
+  await expect(page.locator('#multi-status')).toContainText('Fresh toy game run');
 });

@@ -381,6 +381,17 @@
       "why": "Breaks the displayed Adv(A) / 2 factor away from the displayed Adv(A), which is the one relation this exhibit exists to show."
     },
     {
+      "id": "multi-key-ceiling-drops-query-factor",
+      "marker": "multi-budget",
+      "family": "claim",
+      "file": "src/game/multiKey.ts",
+      "find": "    unionBound: Math.min(1, totalQueries * epsilon),",
+      "replace": "    unionBound: Math.min(1, epsilon),",
+      "spec": "e2e/verdicts.spec.ts",
+      "grep": "multi-key budget claim matches the independent Q epsilon ceiling",
+      "why": "Drops Q from the rendered multi-key upper bound; the independent browser oracle must catch the claimed reduction in risk."
+    },
+    {
       "id": "ggm-expansion-repeats-block",
       "marker": "ggm-tree",
       "family": "claim",

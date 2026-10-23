@@ -177,4 +177,10 @@ export async function driveAllStates(page: Page, viewport: string): Promise<void
   await page.locator('.sources > summary').click();
   await page.locator('#reduction-run').focus();
   await scan(page, `${viewport} / disclosures open and action focused`);
+  await openTab(page, 'Multi-key toy');
+  await scan(page, `${viewport} / multi-key budget`);
+  await page.locator('#multi-run').click();
+  await scan(page, `${viewport} / multi-key sampled game`);
+  await page.locator('#multi-users').fill('0');
+  await scan(page, `${viewport} / multi-key invalid input`);
 }
