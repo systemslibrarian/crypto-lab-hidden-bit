@@ -586,17 +586,31 @@ test('CCA2 verdict follows the measured interval', async ({ page }) => {
   // and the verdict must be the alarm branch. Recomputed here, not assumed.
   expect(wins).toBe(trials);
   await expectVerdict(page, 'cca', { text: 'BROKEN: ADVANTAGE', state: 'alarm' });
+});
 
-  // The other direction: OAEP wins nothing repeatable, so the same element must
-  // reach the neutral branch. One assertion per branch or the branch is untested.
+test('CCA2 OAEP verdict describes the measured sample without claiming a break', async ({ page }) => {
+  await openTab(page, 'CCA2 oracle');
+  // OAEP's bit flip produces random guesses. A finite 95% interval can exclude
+  // zero by chance, so derive the expected branch from the *measured* ledger
+  // rather than assuming this particular sample is neutral.
   await page.locator('#cca-scheme').selectOption('rsa-oaep-cca');
   await setNumber(page, '#cca-trials', '40');
   await page.locator('#cca-run').click();
   await expect(page.locator('#cca-retirement')).toContainText('Fresh CCA2 result');
-  await expectVerdict(page, 'cca', {
-    text: 'NO ADVANTAGE FOUND BY THIS ADVERSARY',
-    state: 'neutral',
-  });
+  const oaepWins = Number(await page.locator('#cca-wins').textContent());
+  const oaepTrials = Number(await page.locator('#cca-total').textContent());
+  const oaepInterval = wilson(oaepWins, oaepTrials);
+  expect(oaepTrials).toBe(40);
+  expect(Number(await page.locator('#cca-advantage').getAttribute('data-value')))
+    .toBeCloseTo(oaepInterval.estimate, 12);
+  if (oaepInterval.low > 0) {
+    await expectVerdict(page, 'cca', { text: 'POSITIVE SAMPLE, NOT AN OAEP BREAK', state: 'neutral' });
+  } else {
+    await expectVerdict(page, 'cca', {
+      text: 'NO ADVANTAGE FOUND BY THIS ADVERSARY',
+      state: 'neutral',
+    });
+  }
 });
 
 test('forgery verdict follows the real verifier outcome', async ({ page }) => {

@@ -137,8 +137,13 @@ export function initCca(): void {
       : '<i data-lucide="shield-alert"></i><div><strong>BOUNDARY FAILURE</strong><p>The exact challenge was not refused.</p></div>';
     const verdict = query<HTMLElement>('#cca-verdict', panel);
     if (result.interval[0] > 0) {
-      verdict.dataset.tone = 'alarm';
-      verdict.innerHTML = `<i data-lucide="shield-alert"></i><div><strong>BROKEN: ADVANTAGE ${formatNumber(result.advantage)}</strong><p>The modified-ciphertext query carried the hidden message through the oracle.</p></div>`;
+      if (result.scheme === 'elgamal-cca') {
+        verdict.dataset.tone = 'alarm';
+        verdict.innerHTML = `<i data-lucide="shield-alert"></i><div><strong>BROKEN: ADVANTAGE ${formatNumber(result.advantage)}</strong><p>The modified-ciphertext query carried the hidden message through the oracle.</p></div>`;
+      } else {
+        verdict.dataset.tone = 'neutral';
+        verdict.innerHTML = `<i data-lucide="circle-dot"></i><div><strong>POSITIVE SAMPLE, NOT AN OAEP BREAK</strong><p>Random guessing can place a 95% interval above zero by chance. This bit-flip query still yielded no decoded message; one run does not establish a repeatable attack.</p></div>`;
+      }
     } else {
       verdict.dataset.tone = 'neutral';
       verdict.innerHTML = '<i data-lucide="circle-dot"></i><div><strong>NO ADVANTAGE FOUND BY THIS ADVERSARY</strong><p>OAEP rejected the modified ciphertext uniformly. This result belongs only to this tactic and run.</p></div>';

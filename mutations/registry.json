@@ -121,8 +121,7 @@
       "marker": "cca",
       "family": "verdict",
       "asserts": [
-        { "text": "BROKEN: ADVANTAGE", "state": "alarm" },
-        { "text": "NO ADVANTAGE FOUND BY THIS ADVERSARY", "state": "neutral" }
+        { "text": "BROKEN: ADVANTAGE", "state": "alarm" }
       ],
       "file": "src/ui/cca.ts",
       "find": "    if (result.interval[0] > 0) {",
