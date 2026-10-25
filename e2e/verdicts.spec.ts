@@ -1072,3 +1072,164 @@ test('multi-key budget claim matches the independent Q epsilon ceiling', async (
   await page.locator('#multi-run').click();
   await expect(page.locator('#multi-status')).toContainText('Fresh toy game run');
 });
+
+/* ── Exhibit 08: target collision resistance (S09) ────────────────────────── */
+
+/**
+ * The planted family written out AGAIN here, from its definition, so the
+ * transcript oracle never asks the page's own arithmetic whether the page is
+ * right. h is the identity except at the planted pair; H_s(x) = h(x ⊕ s).
+ */
+function plantedHash(key: number, x: number): number {
+  const u = (x ^ key) & 0xff;
+  return u === 0xf0 ? 0x0f : u;
+}
+function foldedHash(key: number, x: number): number {
+  return ((x ^ key) & 0xff) & 0x0f;
+}
+function hexByte(value: number): string {
+  return `0x${value.toString(16).padStart(2, '0').toUpperCase()}`;
+}
+
+/** The p-form Wilson interval, written out rather than imported. */
+function wilsonRate(wins: number, trials: number): { estimate: number; low: number; high: number } {
+  const z = 1.959963984540054;
+  const probability = wins / trials;
+  const denominator = 1 + (z * z) / trials;
+  const center = (probability + (z * z) / (2 * trials)) / denominator;
+  const radius =
+    (z / denominator) *
+    Math.sqrt((probability * (1 - probability)) / trials + (z * z) / (4 * trials * trials));
+  return { estimate: probability, low: Math.max(0, center - radius), high: Math.min(1, center + radius) };
+}
+
+test('target-collision verdict follows the machine outcome', async ({ page }) => {
+  await openTab(page, 'Target collisions');
+  // Planted family, plant-shift, replayed key 0x00: the committed 0xF0 lands
+  // on the planted pair (0xF0 ⊕ 0x00 = 0xF0) and collides.
+  await page.locator('#tcr-key').selectOption('00');
+  await page.locator('#tcr-play').click();
+  await expectVerdict(page, 'tcr-game', { text: 'TARGET COLLISION', state: 'alarm' });
+  // Replayed key 0x10: 0xF0 ⊕ 0x10 = 0xE0, whose only partner under the planted
+  // family is itself — the scan finds nothing and the definition holds.
+  await page.locator('#tcr-key').selectOption('10');
+  await page.locator('#tcr-play').click();
+  await expectVerdict(page, 'tcr-game', { text: 'NO TARGET COLLISION', state: 'pass' });
+});
+
+test('key-first collision verdict follows the machine outcome', async ({ page }) => {
+  await openTab(page, 'Target collisions');
+  // Key-first on the planted family: the strategy shifts the planted pair past
+  // the mask and always collides, whatever the key.
+  await page.locator('#tcr-key').selectOption('00');
+  await page.locator('#cr-play').click();
+  await expectVerdict(page, 'cr-game', { text: 'COLLISION', state: 'alarm' });
+  // The same submission on the fold family is NOT a collision there — {0xF0,
+  // 0x0F} differ across their whole low nibble — so the family-specific
+  // strategy loses and the verdict says so instead of flattering it.
+  await page.locator('#tcr-family').selectOption('nibble-fold');
+  await page.locator('#cr-play').click();
+  await expectVerdict(page, 'cr-game', { text: 'NO COLLISION', state: 'pass' });
+});
+
+test('target-first transcript claim shows every adjudicated move', async ({ page }) => {
+  await openTab(page, 'Target collisions');
+  await page.locator('#tcr-key').selectOption('00');
+  await page.locator('#tcr-play').click();
+  let claim = await readClaim(page, 'tcr-transcript');
+  expect(claimField(claim, 'Committed target')).toBe('0xF0');
+  expect(claimField(claim, 'Key drawn after')).toBe('0x00');
+  expect(claimField(claim, 'Partner')).toBe('0x0F');
+  expect(claimField(claim, 'Target digest')).toBe(hexByte(plantedHash(0x00, 0xf0)));
+  expect(claimField(claim, 'Partner digest')).toBe(hexByte(plantedHash(0x00, 0x0f)));
+  expect(claim.text).toContain('committed before any key exists');
+
+  // The spray strategy's second commit is refused on the tape, with the
+  // single-target rule named — the order-of-play enforcement itself.
+  await page.locator('#tcr-strategy').selectOption('spray-multi');
+  await page.locator('#tcr-play').click();
+  claim = await readClaim(page, 'tcr-transcript');
+  expect(claim.text).toContain('commit target 0x0F');
+  expect(claim.text).toContain('exactly one target');
+  expect(claim.text).toContain('committed before any key exists');
+});
+
+test('key-first transcript claim shows the shifted pair', async ({ page }) => {
+  await openTab(page, 'Target collisions');
+  await page.locator('#tcr-key').selectOption('ff');
+  await page.locator('#cr-play').click();
+  let claim = await readClaim(page, 'cr-transcript');
+  expect(claimField(claim, 'Published key')).toBe('0xFF');
+  expect(claimField(claim, 'Chosen x')).toBe('0x0F');
+  expect(claimField(claim, 'Partner')).toBe('0xF0');
+  expect(claimField(claim, 'Digest of x')).toBe(hexByte(plantedHash(0xff, 0x0f)));
+  expect(claimField(claim, 'Partner digest')).toBe(hexByte(plantedHash(0xff, 0xf0)));
+  expect(claim.text).toContain('published before any input');
+
+  // The fold family loses this game, and its two digests differ — the branch
+  // where a swapped digest cannot hide behind a winning pair's equality.
+  await page.locator('#tcr-family').selectOption('nibble-fold');
+  await page.locator('#cr-play').click();
+  claim = await readClaim(page, 'cr-transcript');
+  expect(claimField(claim, 'Digest of x')).toBe(hexByte(foldedHash(0xff, 0x0f)));
+  expect(claimField(claim, 'Partner digest')).toBe(hexByte(foldedHash(0xff, 0xf0)));
+});
+
+test('target-collision separation claim matches the exhaustive analysis', async ({ page }) => {
+  await openTab(page, 'Target collisions');
+  // Planted family, every strategy: target-first 2/256, key-first 1,
+  // second preimage 2/256 — each recomputed here from the family definition.
+  for (const strategy of ['plant-shift', 'scan-pairs', 'spray-multi'] as const) {
+    await page.locator('#tcr-strategy').selectOption(strategy);
+    const claim = await readClaim(page, 'tcr-separation');
+    expect(claimField(claim, 'Target-before-key chance')).toBe(formatted(2 / 256));
+    expect(claimField(claim, 'Collision-after-key chance')).toBe(formatted(1));
+    expect(claimField(claim, 'Second-preimage chance')).toBe(formatted(2 / 256));
+    expect(claimField(claim, 'Keys beating the worst target')).toBe('2 of 256');
+    expect(Number(claim.value)).toBeCloseTo(2 / 256, 12);
+  }
+  // Fold family: target-first and second preimage saturate for every
+  // strategy; key-first depends on whether the strategy's pair is a
+  // collision of the fold — the planted pair is not, the scan's is.
+  await page.locator('#tcr-family').selectOption('nibble-fold');
+  for (const [strategy, cr] of [['plant-shift', 0], ['scan-pairs', 1], ['spray-multi', 0]] as const) {
+    await page.locator('#tcr-strategy').selectOption(strategy);
+    const claim = await readClaim(page, 'tcr-separation');
+    expect(claimField(claim, 'Target-before-key chance')).toBe(formatted(1));
+    expect(claimField(claim, 'Collision-after-key chance')).toBe(formatted(cr));
+    expect(claimField(claim, 'Second-preimage chance')).toBe(formatted(1));
+    expect(claimField(claim, 'Keys beating the worst target')).toBe('256 of 256');
+  }
+});
+
+test('sample claim brackets deterministic and sampled orders', async ({ page }) => {
+  await openTab(page, 'Target collisions');
+  // Deterministic corners on the fold family: the scan wins every game in
+  // both orders, and plant-shift loses every key-first game.
+  await page.locator('#tcr-family').selectOption('nibble-fold');
+  await page.locator('#tcr-strategy').selectOption('scan-pairs');
+  await setNumber(page, '#tcr-trials', '64');
+  await page.locator('#tcr-sample-run').click();
+  let claim = await readClaim(page, 'tcr-sample');
+  expect(claimField(claim, 'Target-first wins')).toContain('64 of 64');
+  expect(claimField(claim, 'Key-first wins')).toContain('64 of 64');
+
+  await page.locator('#tcr-strategy').selectOption('plant-shift');
+  await page.locator('#tcr-sample-run').click();
+  claim = await readClaim(page, 'tcr-sample');
+  expect(claimField(claim, 'Target-first wins')).toContain('64 of 64');
+  expect(claimField(claim, 'Key-first wins')).toContain('0 of 64');
+
+  // The sampled case on the planted family: whatever the uniform keys drew,
+  // the displayed rate and interval must agree with an independent Wilson
+  // computation from the displayed win count itself.
+  await page.locator('#tcr-family').selectOption('planted-pair');
+  await setNumber(page, '#tcr-trials', '512');
+  await page.locator('#tcr-sample-run').click();
+  claim = await readClaim(page, 'tcr-sample');
+  const wins = Number(claimField(claim, 'Target-first wins').split(' of ')[0]);
+  const interval = wilsonRate(wins, 512);
+  expect(claimField(claim, 'Target-first wins'))
+    .toContain(`(rate ${formatted(interval.estimate)}, 95% ${formatted(interval.low)} to ${formatted(interval.high)})`);
+  expect(Number(claim.value)).toBeCloseTo(wins / 512, 12);
+});

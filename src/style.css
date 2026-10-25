@@ -540,3 +540,40 @@ td { color: var(--text-dim); }
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
 }
+
+/* ── Exhibit 08: target collisions ───────────────────────────────────── */
+
+.machine-column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  min-width: 0;
+}
+
+.machine-column h4 {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--accent, inherit);
+}
+
+.machine-order {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-dim, inherit);
+}
+
+.tcr-move {
+  font-size: 0.82rem;
+  padding: 0.15rem 0;
+  border-bottom: 1px dashed var(--border, #444);
+}
+
+.tcr-move.is-refused {
+  color: var(--alarm-ink, inherit);
+  border-left: 3px solid var(--alarm, #c33);
+  padding-left: 0.5rem;
+}
+
+.tcr-move-name {
+  font-weight: 600;
+}

@@ -472,6 +472,80 @@
       "spec": "e2e/claims.spec.ts",
       "grep": "GGM tree follows independent AES branches",
       "why": "Makes both AES expansion blocks identical; the browser claim must disagree with independently evaluated AES-ECB for the chosen leaf."
-    }
+    },
+  {
+    "id": "tcr-win-inverted",
+    "marker": "tcr-game",
+    "family": "verdict",
+    "asserts": [ { "text": "TARGET COLLISION", "state": "alarm" }, { "text": "NO TARGET COLLISION", "state": "pass" } ],
+    "file": "src/game/tcr.ts",
+    "find": "    won: state.partner !== null && partnerHash === targetHash,",
+    "replace": "    won: state.partner !== null && partnerHash !== targetHash,",
+    "spec": "e2e/verdicts.spec.ts",
+    "grep": "target-collision verdict follows the machine outcome",
+    "why": "Inverts the target-before-key win condition, so the replayed key-0x00 game that collides reports NO TARGET COLLISION and the key-0x10 game that found no partner reports a win. Both pinned verdict pairs fail inside the marker's own test.",
+    "scope": "Also reddens the transcript claim test, which recomputes the outcome from the displayed hashes; the kill is recorded from this marker's own test via --grep."
+  },
+  {
+    "id": "cr-shift-dropped",
+    "marker": "cr-game",
+    "family": "verdict",
+    "asserts": [ { "text": "COLLISION", "state": "alarm" }, { "text": "NO COLLISION", "state": "pass" } ],
+    "file": "src/game/tcr.ts",
+    "find": "      // The key is public: shift the planted inner pair past the input mask.\n      choose((PLANTED_A ^ key) & 0xff);",
+    "replace": "      // The key is public: shift the planted inner pair past the input mask.\n      choose(PLANTED_A);",
+    "spec": "e2e/verdicts.spec.ts",
+    "grep": "key-first collision verdict follows the machine outcome",
+    "why": "Drops the key-dependent shift from the plant-shift collision game, so the unmasked 0xF0/0x0F submission no longer collides under the replayed key and the pinned COLLISION verdict turns into its loss branch.",
+    "scope": "Also reddens the key-first transcript test's recomputed x field; the kill is recorded from this marker's own test via --grep."
+  },
+  {
+    "id": "tcr-spray-commit-collapsed",
+    "marker": "tcr-transcript",
+    "family": "claim",
+    "file": "src/game/tcr.ts",
+    "find": "      commit(PLANTED_A);\n      commit(PLANTED_B);",
+    "replace": "      commit(PLANTED_A);",
+    "spec": "e2e/verdicts.spec.ts",
+    "grep": "target-first transcript claim shows every adjudicated move",
+    "why": "Collapses the spray strategy to a single commit, so the machine's exactly-one-target refusal disappears from the transcript the claim test reads. The order-of-play enforcement this exhibit exists to demonstrate is what the mutation removes.",
+    "scope": "Verdict markers stay green under this mutation; the kill is the missing refusal row in this marker's own readClaim."
+  },
+  {
+    "id": "cr-transcript-digest-swapped",
+    "marker": "cr-transcript",
+    "family": "claim",
+    "file": "src/game/tcr.ts",
+    "find": "  const xHash = familyHash(family, key, state.x);",
+    "replace": "  const xHash = familyHash(family, key, state.partner ?? 0);",
+    "spec": "e2e/verdicts.spec.ts",
+    "grep": "key-first transcript claim shows the shifted pair",
+    "why": "Renders the chosen x's digest as the partner's digest. On the fold family the plant-shift game loses with two different digests, so the independently recomputed digest of x no longer matches the claim.",
+    "scope": "On the winning planted game both digests are equal, so only the losing branch catches it; the test pins that branch on purpose."
+  },
+  {
+    "id": "tcr-separation-halved",
+    "marker": "tcr-separation",
+    "family": "claim",
+    "file": "src/game/tcr.ts",
+    "find": "  const tcrChance = worstKeys.length / 256;",
+    "replace": "  const tcrChance = worstKeys.length / 512;",
+    "spec": "e2e/verdicts.spec.ts",
+    "grep": "target-collision separation claim matches the exhaustive analysis",
+    "why": "Halves the exhaustive target-first win chance, so the displayed 2/256 becomes 1/256 and the independent oracle that recomputes the exact count from the family definition fails on the planted family's rows.",
+    "scope": "The fold family's rows stay correct (its chance saturates); the kill lands on the planted rows in this marker's own test."
+  },
+  {
+    "id": "tcr-sample-wins-inflated",
+    "marker": "tcr-sample",
+    "family": "claim",
+    "file": "src/game/tcr.ts",
+    "find": "    if (won) wins += 1;",
+    "replace": "    wins += 1;",
+    "spec": "e2e/verdicts.spec.ts",
+    "grep": "sample claim brackets deterministic and sampled orders",
+    "why": "Counts every sampled game as a win, so the fold family's plant-shift key-first sample, pinned at exactly 0 of 64 because the planted pair is not a fold collision, reports 64 of 64 and the deterministic-zero branch fails.",
+    "scope": "The 64-of-64 branches cannot distinguish this mutation; the zero branch is the kill, recorded from this marker's own test."
+  }
   ]
 }

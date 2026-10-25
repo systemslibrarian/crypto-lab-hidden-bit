@@ -14,6 +14,7 @@ import { initReduction } from './ui/reduction';
 import { initHybridProof } from './ui/hybridProof';
 import { initMultiKey } from './ui/multiKey';
 import { initSwitching } from './ui/switching';
+import { initTcr } from './ui/tcr';
 
 function initTabs(): void {
   const tabs = Array.from(document.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
@@ -64,3 +65,4 @@ initGgm();
 initReduction();
 initMultiKey();
 void initHybridProof();
+initTcr();
