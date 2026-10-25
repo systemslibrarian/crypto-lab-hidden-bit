@@ -391,6 +391,78 @@
       "why": "Drops Q from the rendered multi-key upper bound; the independent browser oracle must catch the claimed reduction in risk."
     },
     {
+      "id": "hybrid-switching-denominator-halved",
+      "marker": "hybrid-ledger",
+      "family": "claim",
+      "file": "src/proofs/hybridLedger.ts",
+      "find": "export const AES_SWITCHING_DENOMINATOR_POWER = 129 as const;",
+      "replace": "export const AES_SWITCHING_DENOMINATOR_POWER = 128 as const;",
+      "spec": "e2e/claims.spec.ts",
+      "grep": "adjacent AES hybrids and executable oracle boundaries are independently checkable",
+      "why": "Drops the factor of two from the permutation-to-function switching ceiling, so the cumulative ledger no longer displays q(q-1)/2^129 for 128-bit blocks."
+    },
+    {
+      "id": "hybrid-oracle-checks-pinned-false",
+      "marker": "hybrid-oracles",
+      "family": "claim",
+      "file": "src/ui/hybridProof.ts",
+      "find": "    const allStable = results.every(({ result }) =>\n      result.repeatStable && result.cloneSafe && result.distinct === 2)\n      && forced.functionCollides && forced.functionDraws === 2\n      && forced.permutationRejects && forced.permutationDraws === 3;",
+      "replace": "    const allStable = false && results.every(({ result }) =>\n      result.repeatStable && result.cloneSafe && result.distinct === 2)\n      && forced.functionCollides && forced.functionDraws === 2\n      && forced.permutationRejects && forced.permutationDraws === 3;",
+      "spec": "e2e/claims.spec.ts",
+      "grep": "adjacent AES hybrids and executable oracle boundaries are independently checkable",
+      "why": "Pins the aggregate executable-oracle result false even while the independently checked AES vector and every cache row satisfy the stated boundary."
+    },
+    {
+      "id": "easy-predicate-reads-second-public-bit",
+      "marker": "easy-predicate",
+      "family": "claim",
+      "file": "src/proofs/hardcore.ts",
+      "find": "  return output.r[0] as Bit;",
+      "replace": "  return output.r[1] as Bit;",
+      "spec": "e2e/claims.spec.ts",
+      "grep": "exposed predicate and Goldreich-Levin reconstruction match independent arithmetic",
+      "why": "Reports r1 while the construction and displayed predicate claim r0; the fixed public vector makes those two bits differ."
+    },
+    {
+      "id": "hardcore-normalized-advantage-misses-factor-two",
+      "marker": "hardcore-recovery",
+      "family": "claim",
+      "file": "src/ui/hybridProof.ts",
+      "find": "      const normalizedAdvantage = (2 * successProbability) - 1;",
+      "replace": "      const normalizedAdvantage = successProbability - 0.5;",
+      "spec": "e2e/claims.spec.ts",
+      "grep": "exposed predicate and Goldreich-Levin reconstruction match independent arithmetic",
+      "why": "Displays predictor excess epsilon where the normalized advantage 2p-1=2epsilon belongs; the browser oracle derives both from the complete finite truth table."
+    },
+    {
+      "id": "hybrid-completion-never-passes",
+      "marker": "hybrid-proof",
+      "family": "verdict",
+      "asserts": [
+        { "text": "ALL FIVE ADJACENT HOPS CLASSIFIED", "state": "pass" }
+      ],
+      "file": "src/ui/hybridProof.ts",
+      "find": "      const complete = ledger.through === 'H5';",
+      "replace": "      const complete = false;",
+      "spec": "e2e/claims.spec.ts",
+      "grep": "adjacent AES hybrids and executable oracle boundaries are independently checkable",
+      "why": "Severs the completion verdict from the independently enumerated H0-to-H5 path, so five valid adjacent hops never receive their completion state."
+    },
+    {
+      "id": "hardcore-verified-recovery-never-passes",
+      "marker": "hardcore-proof",
+      "family": "verdict",
+      "asserts": [
+        { "text": "VERIFIED PREIMAGE FOUND", "state": "pass" }
+      ],
+      "file": "src/ui/hybridProof.ts",
+      "find": "      const recovered = result.status === 'recovered';",
+      "replace": "      const recovered = false;",
+      "spec": "e2e/claims.spec.ts",
+      "grep": "exposed predicate and Goldreich-Levin reconstruction match independent arithmetic",
+      "why": "Severs the verdict from independently rehashed verified candidates, so a real verified preimage is rendered as a missed sample."
+    },
+    {
       "id": "ggm-expansion-repeats-block",
       "marker": "ggm-tree",
       "family": "claim",

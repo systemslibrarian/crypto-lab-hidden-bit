@@ -169,7 +169,7 @@ body {
 }
 .tab-list {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   overflow-x: auto;
   border: 1px solid var(--border);
   border-radius: 6px 6px 0 0;
@@ -411,6 +411,28 @@ body {
 .value-row dt { color: var(--text-muted); font-size: .62rem; }
 .value-row dd { min-width: 0; margin: 0; color: var(--text); font-size: .68rem; overflow-wrap: anywhere; }
 
+.proof-act { margin-top: 1.5rem; padding-top: 1.25rem; border-top: 2px solid var(--border-strong); }
+.proof-act-heading { display: grid; grid-template-columns: minmax(13rem, .75fr) minmax(18rem, 1.25fr); gap: 1.5rem; align-items: end; }
+.proof-act-heading h3 { margin: 0; font-family: var(--display); font-size: 1.35rem; line-height: 1.15; }
+.proof-act-heading > p { margin: 0; color: var(--text-dim); font-size: .72rem; line-height: 1.6; }
+.proof-controls { grid-template-columns: minmax(12rem, .6fr) minmax(0, 1.4fr); margin-top: 1rem; }
+.proof-controls .button-row { justify-content: flex-end; }
+.proof-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr); gap: 1rem; padding-top: 1rem; }
+.hybrid-list { display: grid; gap: .6rem; margin: .8rem 0 0; padding: 0; list-style: none; }
+.hybrid-step { padding: .75rem; border: 1px solid var(--border); border-left: 3px solid var(--border-strong); background-color: var(--surface-2); }
+.hybrid-step[data-kind='assumption'] { border-left-color: var(--warning); }
+.hybrid-step[data-kind='bad-event'] { border-left-color: var(--accent-hover); }
+.hybrid-step > div { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: .65rem; align-items: baseline; }
+.hybrid-step > div span { color: var(--accent-hover); font-size: .62rem; font-weight: 700; }
+.hybrid-step > div strong { font-size: .72rem; }
+.hybrid-step dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; margin: .65rem 0; }
+.hybrid-step dl div { min-width: 0; padding-top: .4rem; border-top: 1px solid var(--border); }
+.hybrid-step dt { color: var(--text-muted); font-size: .58rem; }
+.hybrid-step dd { margin: .18rem 0 0; color: var(--text); font-size: .65rem; overflow-wrap: anywhere; }
+.hybrid-step small { display: block; color: var(--text-muted); font-size: .62rem; line-height: 1.5; }
+.proof-actions { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; justify-content: space-between; margin: 1rem 0; padding: .8rem; border-block: 1px solid var(--border); background-color: var(--bg-raised); }
+.proof-actions p { margin: 0; color: var(--text-muted); font-size: .7rem; line-height: 1.5; }
+
 .table-scroll { overflow: auto; max-width: 100%; }
 table { width: 100%; border-collapse: collapse; font-size: .7rem; }
 th, td { padding: .65rem .75rem; border: 1px solid var(--border); text-align: left; vertical-align: top; }
@@ -479,6 +501,8 @@ td { color: var(--text-dim); }
   .control-deck { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .game-stage { grid-template-columns: minmax(0, 1fr) 70px minmax(0, 1fr); }
   .metrics-grid { grid-template-columns: 1fr; }
+  .proof-act-heading,
+  .proof-grid { grid-template-columns: 1fr; }
   .reduction-pipeline { grid-template-columns: 1fr; }
   .pipeline-arrow { transform: rotate(90deg); min-height: 26px; }
 }
@@ -494,9 +518,10 @@ td { color: var(--text-dim); }
   .scope-heading h2,
   .scope-heading > p:last-child { grid-column: 1; grid-row: auto; }
   .exhibit-nav { top: 62px; }
-  .tab-list { grid-template-columns: repeat(5, minmax(142px, 1fr)); }
+  .tab-list { grid-template-columns: repeat(7, minmax(142px, 1fr)); }
   .experiment-panel { min-height: 640px; padding: 1rem; }
   .control-deck { grid-template-columns: 1fr; }
+  .proof-controls .button-row { justify-content: flex-start; }
   .game-stage { grid-template-columns: 1fr; }
   .oracle-lane { min-height: 64px; }
   .oracle-line { transform: rotate(90deg); width: 52px; }
@@ -505,6 +530,8 @@ td { color: var(--text-dim); }
   .ggm-columns,
   .scope-columns,
   .guard-grid { grid-template-columns: 1fr; }
+  .hybrid-step > div,
+  .hybrid-step dl { grid-template-columns: 1fr; }
   .ledger { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .trial-tape { grid-template-columns: repeat(10, minmax(5px, 1fr)); }
 }

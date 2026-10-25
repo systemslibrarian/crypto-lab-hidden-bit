@@ -15,20 +15,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Interactive security-game experiments for IND-CPA, IND-CCA2, EUF-CMA, and PRP/PRF switching over real AES, RSA, ElGamal, ECDSA, and Ed25519 primitives."
+      content="Interactive security games, adjacent AES hybrids, and a bounded Goldreich-Levin hard-core-predicate reconstruction over real browser cryptography."
     />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="Hidden Bit — crypto-lab" />
     <meta
       property="og:description"
-      content="Run challenger-versus-adversary security games over real browser cryptography and inspect the advantage each strategy earns."
+      content="Run security games over real browser cryptography, account for adjacent hybrid steps, and verify a bounded hard-core-predicate reconstruction."
     />
     <meta property="og:url" content="https://systemslibrarian.github.io/crypto-lab-hidden-bit/" />
     <meta name="twitter:card" content="summary" />
     <meta name="twitter:title" content="Hidden Bit — crypto-lab" />
     <meta
       name="twitter:description"
-      content="Run challenger-versus-adversary security games over real browser cryptography and inspect the advantage each strategy earns."
+      content="Run security games over real browser cryptography, account for adjacent hybrid steps, and verify a bounded hard-core-predicate reconstruction."
     />
     <link
       rel="icon"
@@ -107,9 +107,9 @@
       <div class="cl-hero">
         <div class="cl-hero-main">
           <h1 class="cl-hero-title">Hidden Bit</h1>
-          <p class="cl-hero-sub">Security games · IND-CPA · IND-CCA2 · EUF-CMA</p>
+          <p class="cl-hero-sub">Security games · Adjacent hybrids · Hard-core predicates</p>
           <p class="cl-hero-desc">
-            Flip the challenger's hidden bit, hand the adversary its oracle, and watch its advantage climb to one against textbook RSA and flatten against RSA-OAEP over real trials.
+            Run hidden-bit games over real primitives, account for each AES hybrid hop, and turn a stipulated inner-product predictor into an independently verified bounded preimage list.
           </p>
         </div>
         <aside class="cl-hero-why" aria-label="Why it matters">
@@ -158,6 +158,9 @@
           <button class="tab-btn" role="tab" id="tab-multi-key" aria-selected="false" aria-controls="panel-multi-key" data-panel="multi-key" tabindex="-1">
             <span>06</span> Multi-key toy
           </button>
+          <button class="tab-btn" role="tab" id="tab-hybrid-proof" aria-selected="false" aria-controls="panel-hybrid-proof" data-panel="hybrid-proof" tabindex="-1">
+            <span>07</span> Hybrid proof
+          </button>
         </div>
       </nav>
 
@@ -168,6 +171,7 @@
         <section id="panel-switching" class="experiment-panel" role="tabpanel" aria-labelledby="tab-switching" hidden></section>
         <section id="panel-reduction" class="experiment-panel" role="tabpanel" aria-labelledby="tab-reduction" hidden></section>
         <section id="panel-multi-key" class="experiment-panel" role="tabpanel" aria-labelledby="tab-multi-key" hidden></section>
+        <section id="panel-hybrid-proof" class="experiment-panel" role="tabpanel" aria-labelledby="tab-hybrid-proof" hidden></section>
       </main>
 
       <section class="scope-band" aria-labelledby="scope-title">
@@ -212,7 +216,7 @@
       <details class="sources">
         <summary>Definitions and primary sources</summary>
         <p>
-          Goldwasser–Micali (1984) · Rackoff–Simon (1991) · Bellare–Desai–Pointcheval–Rogaway (1998) · Goldwasser–Micali–Rivest (1988) · Bellare–Rogaway (2006) · Shoup (2004) · FIPS 197 · RFC 6979 · RFC 8032.
+          Goldwasser–Micali (1984) · Rackoff–Simon (1991) · Goldreich–Levin (1989) · Bellare–Desai–Pointcheval–Rogaway (1998) · Goldwasser–Micali–Rivest (1988) · Bellare–Rogaway (2006) · Shoup (2004) · FIPS 197 · RFC 6979 · RFC 8032.
         </p>
       </details>
 

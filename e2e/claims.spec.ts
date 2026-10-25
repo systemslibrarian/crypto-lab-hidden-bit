@@ -1,6 +1,6 @@
 import { createCipheriv, createHash } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
-import { expectVerdict, readClaim } from './verdict-audit';
+import { claimField, expectVerdict, readClaim } from './verdict-audit';
 import { SWITCHING_BITS, SWITCHING_QUERIES, SWITCHING_TRIALS } from './switching-params';
 
 const SECP_P = 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2fn;
@@ -9,6 +9,8 @@ const SECP_G = {
   x: 0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798n,
   y: 0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8n,
 };
+const HARDCORE_BITS = '10110110';
+const HARDCORE_DOMAIN = 'crypto-lab-hidden-bit:E-K-04:bounded-sha256:v1';
 type CurvePoint = typeof SECP_G | null;
 
 function modulo(value: bigint, modulus: bigint): bigint {
@@ -318,6 +320,124 @@ test('DDH wrapper reports the stated factor within its displayed interval', asyn
   const tolerance = Number((await page.locator('#reduction-tolerance').textContent())?.replace('±', '').trim());
   expect(expected).toBeCloseTo(a / 2, 2);
   expect(Math.abs(b - expected)).toBeLessThanOrEqual(tolerance + 0.002);
+});
+
+test('adjacent AES hybrids and executable oracle boundaries are independently checkable', async ({ page }) => {
+  await openTab(page, 'Hybrid proof');
+  await page.locator('#hybrid-queries').fill('48');
+  for (let hop = 0; hop < 5; hop += 1) await page.locator('#hybrid-next').click();
+
+  const ledger = await readClaim(page, 'hybrid-ledger');
+  expect(await page.locator('#hybrid-ledger .hybrid-step').count()).toBe(5);
+  expect(await page.locator('#hybrid-ledger .hybrid-step').evaluateAll((steps) =>
+    steps.map((step) => ({
+      from: (step as HTMLElement).dataset.from,
+      to: (step as HTMLElement).dataset.to,
+      kind: (step as HTMLElement).dataset.kind,
+    })),
+  )).toEqual([
+    { from: 'H0', to: 'H1', kind: 'exact' },
+    { from: 'H1', to: 'H2', kind: 'assumption' },
+    { from: 'H2', to: 'H3', kind: 'exact' },
+    { from: 'H3', to: 'H4', kind: 'bad-event' },
+    { from: 'H4', to: 'H5', kind: 'exact' },
+  ]);
+  expect(claimField(ledger, 'Distinct inputs q')).toBe('48');
+  expect(claimField(ledger, 'Current endpoint')).toBe('H5');
+  const independentNumerator = 48 * 47;
+  expect(claimField(ledger, 'Cumulative bound')).toBe(
+    `Adv_AES^PRP(B_AES) + ${independentNumerator} / 2^129`,
+  );
+  await expectVerdict(page, 'hybrid-proof', {
+    text: 'ALL FIVE ADJACENT HOPS CLASSIFIED',
+    state: 'pass',
+  });
+
+  await page.locator('#hybrid-oracle-run').click();
+  const oracles = await readClaim(page, 'hybrid-oracles');
+  expect(oracles.value).toBe('true');
+  const keyHex = await page.locator('[data-field="oracle-key"]').textContent() ?? '';
+  const inputHex = await page.locator('[data-field="oracle-input"]').textContent() ?? '';
+  const cipher = createCipheriv('aes-128-ecb', Buffer.from(keyHex, 'hex'), null);
+  cipher.setAutoPadding(false);
+  const independentAes = Buffer.concat([
+    cipher.update(Buffer.from(inputHex, 'hex')),
+    cipher.final(),
+  ]).toString('hex');
+  await expect(page.locator('[data-oracle="aes"] [data-field="output"]')).toHaveText(independentAes);
+  for (const id of ['aes', 'permutation', 'function']) {
+    const row = page.locator(`[data-oracle="${id}"]`);
+    await expect(row.locator('[data-field="repeat"]')).toHaveText('yes');
+    await expect(row.locator('[data-field="clone"]')).toHaveText('yes');
+    await expect(row.locator('[data-field="distinct"]')).toHaveText('2');
+    expect(await row.locator('[data-field="output"]').textContent()).toMatch(/^[0-9a-f]{32}$/);
+  }
+  await expect(page.locator('[data-field="function-collision"]')).toHaveText('allowed after 2 draws');
+  await expect(page.locator('[data-field="permutation-collision"]')).toHaveText(
+    'rejected; unused block accepted after 3 draws',
+  );
+});
+
+test('exposed predicate and Goldreich-Levin reconstruction match independent arithmetic', async ({ page }) => {
+  await openTab(page, 'Hybrid proof');
+  await expect(page.locator('#hardcore-run')).toBeEnabled();
+
+  const easy = await readClaim(page, 'easy-predicate');
+  const publicR = claimField(easy, 'Public r');
+  expect(publicR).toBe('10011010');
+  expect(claimField(easy, 'Predicate r₀')).toBe(publicR[0]);
+  expect(claimField(easy, 'Public predictor')).toBe(publicR[0]);
+  expect(claimField(easy, 'Complete bounded audit')).toBe('256 / 256');
+  const encoded = Buffer.concat([
+    Buffer.from(HARDCORE_DOMAIN, 'utf8'),
+    Buffer.from([0, HARDCORE_BITS.length]),
+    Buffer.from([...HARDCORE_BITS].map(Number)),
+  ]);
+  const independentImage = createHash('sha256').update(encoded).digest('hex');
+  expect(claimField(easy, 'Domain-separated bounded f(x)')).toBe(independentImage);
+  expect(easy.value).toBe(publicR[0]);
+
+  await page.locator('#hardcore-run').click();
+  await expect(page.locator('#hardcore-status')).toContainText('Fresh uniform reconstruction run', {
+    timeout: 90_000,
+  });
+  const recovery = await readClaim(page, 'hardcore-recovery');
+  const correct = (2 ** HARDCORE_BITS.length) - 1;
+  const total = 2 ** HARDCORE_BITS.length;
+  const probability = correct / total;
+  const epsilon = probability - 0.5;
+  const advantage = (2 * probability) - 1;
+  const ell = Math.ceil(Math.log2((HARDCORE_BITS.length / (epsilon * epsilon)) + 1));
+  const subsets = (2 ** ell) - 1;
+  expect(claimField(recovery, 'Public y')).toBe(independentImage);
+  expect(claimField(recovery, 'Exact predictor success p')).toBe(`${correct} / ${total}`);
+  expect(Number(claimField(recovery, 'Excess ε = p − 1/2'))).toBe(epsilon);
+  expect(Number(claimField(recovery, 'Normalized advantage 2p − 1 = 2ε'))).toBe(advantage);
+  expect(Number(recovery.value)).toBe(advantage);
+  expect(claimField(recovery, 'Sample count ℓ')).toBe(String(ell));
+  expect(claimField(recovery, 'Nonempty subset XORs')).toBe(String(subsets));
+  expect(claimField(recovery, 'σ guesses')).toBe(String(2 ** ell));
+  const queriesPerAttempt = HARDCORE_BITS.length * subsets;
+  const attempts = Number(claimField(recovery, 'Independent attempts used'));
+  expect(claimField(recovery, 'Predictor queries per attempt')).toBe(String(queriesPerAttempt));
+  expect(claimField(recovery, 'Total predictor queries used')).toBe(String(attempts * queriesPerAttempt));
+  const samples = claimField(recovery, 'Final-attempt uniform sample vectors').split(', ');
+  expect(samples).toHaveLength(ell);
+  for (const sample of samples) expect(sample).toMatch(/^[01]{8}$/);
+  const verified = claimField(recovery, 'Independently verified candidates').split(', ');
+  expect(verified).toContain(HARDCORE_BITS);
+  for (const candidate of verified) {
+    const candidatePayload = Buffer.concat([
+      Buffer.from(HARDCORE_DOMAIN, 'utf8'),
+      Buffer.from([0, candidate.length]),
+      Buffer.from([...candidate].map(Number)),
+    ]);
+    expect(createHash('sha256').update(candidatePayload).digest('hex')).toBe(independentImage);
+  }
+  await expectVerdict(page, 'hardcore-proof', {
+    text: 'VERIFIED PREIMAGE FOUND',
+    state: 'pass',
+  });
 });
 
 test('exact CCA challenge is refused and hidden panels stay unpainted', async ({ page }) => {
