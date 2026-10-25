@@ -126,7 +126,7 @@
           <h2 id="intro-title">A definition you can run</h2>
         </div>
         <p>
-          A challenger hides one random bit inside a cryptographic task. An adversary sees only the public rules and tries to name that bit. Repeated wins reveal a usable pattern; repeated guesses reveal only that this particular strategy found none.
+          In this lab's guessing-game exhibits, a challenger hides one random bit and the adversary tries to name it. Those exhibits report normalized guessing advantage, 2p − 1. The target-collision exhibit is instead a search game with no hidden coin, so it reports the adversary's raw win probability p. In either kind of game, one named strategy's losses do not establish security.
         </p>
       </section>
 
@@ -161,6 +161,9 @@
           <button class="tab-btn" role="tab" id="tab-hybrid-proof" aria-selected="false" aria-controls="panel-hybrid-proof" data-panel="hybrid-proof" tabindex="-1">
             <span>07</span> Hybrid proof
           </button>
+          <button class="tab-btn" role="tab" id="tab-tcr" aria-selected="false" aria-controls="panel-tcr" data-panel="tcr" tabindex="-1">
+            <span>08</span> Target collisions
+          </button>
         </div>
       </nav>
 
@@ -172,6 +175,7 @@
         <section id="panel-reduction" class="experiment-panel" role="tabpanel" aria-labelledby="tab-reduction" hidden></section>
         <section id="panel-multi-key" class="experiment-panel" role="tabpanel" aria-labelledby="tab-multi-key" hidden></section>
         <section id="panel-hybrid-proof" class="experiment-panel" role="tabpanel" aria-labelledby="tab-hybrid-proof" hidden></section>
+        <section id="panel-tcr" class="experiment-panel" role="tabpanel" aria-labelledby="tab-tcr" hidden></section>
       </main>
 
       <section class="scope-band" aria-labelledby="scope-title">
@@ -183,7 +187,7 @@
         <div class="scope-columns">
           <div>
             <h3>What is real</h3>
-            <p>AES CBC/CTR/GCM and RSA OAEP/PSS use WebCrypto. AES-ECB, ristretto255 ElGamal, secp256k1 ECDSA, and Ed25519 use audited Noble packages. The challenger bit always comes from <code>crypto.getRandomValues</code>.</p>
+            <p>AES CBC/CTR/GCM and RSA OAEP/PSS use WebCrypto. AES-ECB, ristretto255 ElGamal, secp256k1 ECDSA, and Ed25519 use audited Noble packages. In the hidden-bit guessing exhibits, the challenger bit always comes from <code>crypto.getRandomValues</code>; the target-collision search game has no challenger bit.</p>
           </div>
           <div>
             <h3>What is idealized</h3>

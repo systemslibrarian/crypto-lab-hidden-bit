@@ -85,6 +85,12 @@ export async function boot(page: Page): Promise<void> {
   await expect(page.locator('a.cl-skip-link')).toHaveAttribute('href', '#app');
   await expect(page.locator('#app')).toHaveCount(1);
   await expect(page.locator('#theme-toggle, #themeToggle, .theme-toggle, [data-theme-toggle]')).toHaveCount(0);
+  const tabList = page.locator('.tab-list');
+  await expect(tabList.getByRole('tab')).toHaveCount(8);
+  const tabTracks = await tabList.evaluate((element) =>
+    getComputedStyle(element).gridTemplateColumns.split(/\s+/).filter(Boolean).length,
+  );
+  expect(tabTracks, 'the tab grid must allocate one track for each of the eight exhibits').toBe(8);
 }
 
 export async function scan(page: Page, label: string): Promise<void> {
@@ -201,4 +207,35 @@ export async function driveAllStates(page: Page, viewport: string): Promise<void
   await page.locator('#hybrid-queries').fill('1');
   await expect(page.locator('#hybrid-proof-verdict')).toContainText('INPUT REFUSED');
   await scan(page, `${viewport} / hybrid invalid query count`);
+
+  await openTab(page, 'Target collisions');
+  await page.locator('#tcr-key').selectOption('00');
+  await page.locator('#tcr-play').click();
+  await expect(page.locator('#tcr-verdict')).toContainText('TARGET COLLISION');
+  await page.locator('#cr-play').click();
+  await expect(page.locator('#cr-verdict')).toContainText('COLLISION');
+  await scan(page, `${viewport} / target-collision machines, both orders replayed`);
+  await page.locator('#tcr-key').selectOption('10');
+  await page.locator('#tcr-play').click();
+  await expect(page.locator('#tcr-transcript')).toContainText('forfeit (no partner)');
+  await expect(page.locator('#tcr-transcript')).toContainText('forfeited without a partner');
+  await scan(page, `${viewport} / target-collision explicit no-answer forfeit`);
+  await page.locator('#tcr-strategy').selectOption('spray-multi');
+  await page.locator('#tcr-play').click();
+  await expect(page.locator('#tcr-transcript')).toContainText('exactly one target');
+  await scan(page, `${viewport} / spray strategy refused its second target`);
+  await page.locator('#tcr-strategy').selectOption('plant-shift');
+  await page.locator('#tcr-trials').fill('64');
+  await page.locator('#tcr-trials').blur();
+  await page.locator('#tcr-sample-run').click();
+  await expect(page.locator('#tcr-sample')).toContainText('Target-first wins');
+  await scan(page, `${viewport} / sampled both orders with Wilson intervals`);
+  await page.locator('#panel-tcr .guard-rails > summary').click();
+  await page.locator('#panel-tcr .sources > summary').click();
+  await scan(page, `${viewport} / target-collision boundaries and sources open`);
+  await page.locator('#tcr-trials').fill('5');
+  await page.locator('#tcr-trials').blur();
+  await page.locator('#tcr-sample-run').click();
+  await expect(page.locator('#tcr-status')).toContainText('Trials must be an integer');
+  await scan(page, `${viewport} / target-collision invalid sample budget`);
 }

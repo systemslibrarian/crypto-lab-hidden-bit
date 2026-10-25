@@ -518,3 +518,130 @@ test('all vulnerable choices are labelled and never selected by default', async 
   await openTab(page, 'Signature oracle');
   await expect(page.locator('#forgery-scheme')).toHaveValue('rsa-pss');
 });
+
+/* ── Exhibit 08: target collision resistance (S09) ────────────────────── */
+
+test('target-collision definitions distinguish the three notions and the signed pair', async ({ page }) => {
+  await boot(page);
+  const intro = ((await page.locator('.plain-intro').textContent()) ?? '').replace(/\s+/g, ' ').trim();
+  expect(intro).toContain("In this lab's guessing-game exhibits");
+  expect(intro).toContain('normalized guessing advantage, 2p − 1');
+  expect(intro).toContain('target-collision exhibit is instead a search game with no hidden coin');
+  expect(intro).toContain("raw win probability p");
+  expect(intro).not.toContain('A challenger hides one random bit inside a cryptographic task');
+  const scope = ((await page.locator('.scope-columns').textContent()) ?? '').replace(/\s+/g, ' ').trim();
+  expect(scope).toContain('In the hidden-bit guessing exhibits, the challenger bit always comes from');
+  expect(scope).toContain('the target-collision search game has no challenger bit');
+  await openTab(page, 'Target collisions');
+  const panel = page.locator('#panel-tcr');
+  const keyBoundary = ((await panel.locator('#tcr-key ~ .field-hint').textContent()) ?? '').replace(/\s+/g, ' ').trim();
+  expect(keyBoundary).toContain('deterministic transcript fixtures, not uniform trials');
+  expect(keyBoundary).toContain('scripted target-first adversary receives it only after committing its target');
+  // The three notions, each with its own order of play and target supplier.
+  const definitions = await readClaim(page, 'tcr-definitions');
+  for (const notion of ['Collision resistance', 'Second preimage', 'Target collision']) {
+    await expect(panel.locator('.definition-table th[scope="row"]', { hasText: notion })).toBeVisible();
+  }
+  expect(definitions.text).toContain('key and uniformly sampled challenge first');
+  await expect(panel).toContainText('key first, then both inputs');
+  await expect(panel).toContainText('uniformly sampled challenge');
+  await expect(panel).toContainText('target first, then the key, then the partner');
+  await expect(panel).toContainText('record every accepted or refused move that the selected strategy actually attempts');
+
+  // The signed (key, digest) pair, outsider statement and malicious-signer
+  // boundary are one learner-visible claim.
+  const signature = await readClaim(page, 'tcr-signature-boundary');
+  expect(signature.text).toContain('signs the pair');
+  expect(signature.text).toContain('outsider-forgery statement');
+  expect(signature.text).toContain('does not establish non-repudiation against a malicious signer');
+  expect(signature.text).toContain('chooses s first may find a collision');
+
+  // The no-extrapolation boundary is visible in the guard rails, not a
+  // footnote, and distinguishes wins from target survival.
+  await panel.locator('.guard-rails > summary').click();
+  const model = await readClaim(page, 'tcr-model-boundary');
+  expect(model.text).toContain('8-bit input and an 8-bit output');
+  expect(model.text).toContain('not a UOWHF construction or an asymptotic separation proof');
+  expect(model.text).toContain('wins for 2 of 256 keys');
+  expect(model.text).toContain('survives for 254 of 256');
+  expect(model.text).toContain('say nothing about SHA-256');
+  await expect(panel).toContainText('No browser run of an 8-bit toy establishes or measures that');
+
+  // Primary-publication links are pinned exactly; the previously used DOIs
+  // resolve to unrelated papers.
+  await panel.locator('.sources > summary').click();
+  const sources = await readClaim(page, 'tcr-sources');
+  expect(sources.text).toContain('Universal One-Way Hash Functions and Their Cryptographic Applications');
+  await expect(panel.locator('a', { hasText: 'Universal One-Way Hash Functions' })).toHaveAttribute(
+    'href',
+    'https://dl.acm.org/doi/10.1145/73007.73011',
+  );
+  await expect(panel.locator('a', { hasText: 'One-Way Functions are Necessary' })).toHaveAttribute(
+    'href',
+    'https://dl.acm.org/doi/10.1145/100216.100269',
+  );
+});
+
+test('target-collision results retire when the configuration moves', async ({ page }) => {
+  await boot(page);
+  await openTab(page, 'Target collisions');
+  await page.locator('#tcr-key').selectOption('00');
+  await page.locator('#tcr-play').click();
+  await expectVerdict(page, 'tcr-game', { text: 'TARGET COLLISION', state: 'alarm' });
+  await page.locator('#cr-play').click();
+  await expectVerdict(page, 'cr-game', { text: 'COLLISION', state: 'alarm' });
+
+  await page.locator('#tcr-trials').fill('64');
+  await page.locator('#tcr-trials').blur();
+  await page.locator('#tcr-sample-run').click();
+  const freshSample = await readClaim(page, 'tcr-sample');
+  expect(freshSample.text).toContain('Target-first wins');
+
+  // A replay fixture controls only the two single-game transcripts. The
+  // sample draws fresh uniform keys internally and must remain visible.
+  await page.locator('#tcr-key').selectOption('10');
+  await expectVerdict(page, 'tcr-game', { text: 'RESULT RETIRED', state: 'neutral' });
+  await expectVerdict(page, 'cr-game', { text: 'RESULT RETIRED', state: 'neutral' });
+  expect((await readClaim(page, 'tcr-sample')).text).toBe(freshSample.text);
+  await expect(page.locator('#tcr-status')).toContainText('uniform-key sample is unchanged');
+
+  // Conversely, changing only the sample budget preserves both replayed
+  // machine transcripts and their verdicts.
+  await page.locator('#tcr-key').selectOption('00');
+  await page.locator('#tcr-play').click();
+  await page.locator('#cr-play').click();
+  const targetTranscript = (await readClaim(page, 'tcr-transcript')).text;
+  const collisionTranscript = (await readClaim(page, 'cr-transcript')).text;
+  await page.locator('#tcr-trials').fill('128');
+  await page.locator('#tcr-trials').blur();
+  await expect(page.locator('#tcr-sample')).toContainText('Sample retired');
+  await expectVerdict(page, 'tcr-game', { text: 'TARGET COLLISION', state: 'alarm' });
+  await expectVerdict(page, 'cr-game', { text: 'COLLISION', state: 'alarm' });
+  expect((await readClaim(page, 'tcr-transcript')).text).toBe(targetTranscript);
+  expect((await readClaim(page, 'cr-transcript')).text).toBe(collisionTranscript);
+  await expect(page.locator('#tcr-status')).toContainText('game transcripts are unchanged');
+
+  await page.locator('#tcr-family').selectOption('nibble-fold');
+  await expect(page.locator('#tcr-status')).toContainText('retired');
+  await expectVerdict(page, 'tcr-game', { text: 'RESULT RETIRED', state: 'neutral' });
+  await expectVerdict(page, 'cr-game', { text: 'RESULT RETIRED', state: 'neutral' });
+  await expect(page.locator('#tcr-sample')).toContainText('Sample retired');
+
+  // A fresh run under the new settings clears the retirement. The fold
+  // family's key-first game is won by the structure-blind scan, not by
+  // plant-shift — whose pair is not a fold collision — so switch to the scan.
+  await page.locator('#tcr-strategy').selectOption('scan-pairs');
+  await page.locator('#cr-play').click();
+  await expectVerdict(page, 'cr-game', { text: 'COLLISION', state: 'alarm' });
+});
+
+test('target-collision sampler refuses budgets outside its teaching bound', async ({ page }) => {
+  await boot(page);
+  await openTab(page, 'Target collisions');
+  await page.locator('#tcr-trials').fill('5');
+  await page.locator('#tcr-trials').blur();
+  await page.locator('#tcr-sample-run').click();
+  await expect(page.locator('#tcr-status')).toContainText('Trials must be an integer from 32 through 2,048');
+  const claim = await readClaim(page, 'tcr-sample');
+  expect(claim.text).toContain('No sample run yet');
+});

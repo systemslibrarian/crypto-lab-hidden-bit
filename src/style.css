@@ -169,7 +169,7 @@ body {
 }
 .tab-list {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(8, minmax(0, 1fr));
   overflow-x: auto;
   border: 1px solid var(--border);
   border-radius: 6px 6px 0 0;
@@ -518,7 +518,7 @@ td { color: var(--text-dim); }
   .scope-heading h2,
   .scope-heading > p:last-child { grid-column: 1; grid-row: auto; }
   .exhibit-nav { top: 62px; }
-  .tab-list { grid-template-columns: repeat(7, minmax(142px, 1fr)); }
+  .tab-list { grid-template-columns: repeat(8, minmax(142px, 1fr)); }
   .experiment-panel { min-height: 640px; padding: 1rem; }
   .control-deck { grid-template-columns: 1fr; }
   .proof-controls .button-row { justify-content: flex-start; }
@@ -539,4 +539,41 @@ td { color: var(--text-dim); }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+}
+
+/* ── Exhibit 08: target collisions ───────────────────────────────────── */
+
+.machine-column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  min-width: 0;
+}
+
+.machine-column h4 {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--accent, inherit);
+}
+
+.machine-order {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-dim, inherit);
+}
+
+.tcr-move {
+  font-size: 0.82rem;
+  padding: 0.15rem 0;
+  border-bottom: 1px dashed var(--border, #444);
+}
+
+.tcr-move.is-refused {
+  color: var(--alarm-ink, inherit);
+  border-left: 3px solid var(--alarm, #c33);
+  padding-left: 0.5rem;
+}
+
+.tcr-move-name {
+  font-weight: 600;
 }

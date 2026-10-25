@@ -38,7 +38,7 @@ import { SINK, readSink } from './observations';
  *
  * mutations/run.mjs runs ONE test at a time through `--grep`, and the runs that
  * matter most are the ones where that test FAILS, because that is what a kill
- * is. A rule that demanded all 27 records on every invocation would fail every
+ * is. A rule that demanded all recorded entries on every invocation would fail every
  * mutation run and every single-test debugging run, and would be switched off
  * within a day. So a record is judged only when its own test ran; and when a
  * whole spec file ran unfiltered, S4 requires all of that file's records to
@@ -64,8 +64,8 @@ interface Ran {
  * `config.grep` is NOT the answer, and the way it is wrong matters: on this
  * repo's pinned Playwright, `--grep "..."` leaves `config.grep` at its default
  * `/.*` /` and applies the filter as a CLI-level test filter instead. Reading it
- * reported every `--grep`'d run as unfiltered — S4 then fired on all nineteen
- * records whose test that run never asked for. `config.argv` carries the real
+ * reported every `--grep`'d run as unfiltered — S4 then fired on every other
+ * record whose test that run never asked for. `config.argv` carries the real
  * command line, so that is what is read, with `config.grep` still honoured for
  * a grep set programmatically in the config file.
  *
