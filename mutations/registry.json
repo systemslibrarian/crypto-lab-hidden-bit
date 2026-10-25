@@ -541,7 +541,7 @@
     "family": "claim",
     "file": "src/game/tcr.ts",
     "find": "    if (won) wins += 1;",
-    "replace": "    wins += 1;",
+    "replace": "    wins += won ? 1 : 1;",
     "spec": "e2e/verdicts.spec.ts",
     "grep": "sample claim brackets deterministic and sampled orders",
     "why": "Counts every sampled game as a win, so the fold family's plant-shift key-first sample, pinned at exactly 0 of 64 because the planted pair is not a fold collision, reports 64 of 64 and the deterministic-zero branch fails.",

@@ -1120,8 +1120,10 @@ test('target-collision verdict follows the machine outcome', async ({ page }) =>
 test('key-first collision verdict follows the machine outcome', async ({ page }) => {
   await openTab(page, 'Target collisions');
   // Key-first on the planted family: the strategy shifts the planted pair past
-  // the mask and always collides, whatever the key.
-  await page.locator('#tcr-key').selectOption('00');
+  // the mask and always collides, whatever the key. Key 0x10 is replayed on
+  // purpose: at 0x00 the unshifted pair would collide too, so this key is the
+  // one that distinguishes the shift from the pair.
+  await page.locator('#tcr-key').selectOption('10');
   await page.locator('#cr-play').click();
   await expectVerdict(page, 'cr-game', { text: 'COLLISION', state: 'alarm' });
   // The same submission on the fold family is NOT a collision there — {0xF0,
