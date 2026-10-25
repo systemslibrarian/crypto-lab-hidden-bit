@@ -526,22 +526,48 @@ test('target-collision definitions distinguish the three notions and the signed 
   await openTab(page, 'Target collisions');
   const panel = page.locator('#panel-tcr');
   // The three notions, each with its own order of play and target supplier.
-  for (const notion of ['Collision resistance', 'Second preimage', 'Target collision (UOWHF)']) {
+  const definitions = await readClaim(page, 'tcr-definitions');
+  for (const notion of ['Collision resistance', 'Second preimage', 'Target collision']) {
     await expect(panel.locator('.definition-table th[scope="row"]', { hasText: notion })).toBeVisible();
   }
+  expect(definitions.text).toContain('key and uniformly sampled challenge first');
   await expect(panel).toContainText('key first, then both inputs');
+  await expect(panel).toContainText('uniformly sampled challenge');
   await expect(panel).toContainText('target first, then the key, then the partner');
-  // The signed (key, digest) pair and the target-collision statement.
-  await expect(panel).toContainText('signs the pair');
-  await expect(panel).toContainText('H');
-  await expect(panel).toContainText('Naor and Yung proposed universal one-way hashing for signatures');
-  // The no-extrapolation boundary, in the guard rails, not a footnote.
+  await expect(panel).toContainText('record every accepted or refused move that the selected strategy actually attempts');
+
+  // The signed (key, digest) pair, outsider statement and malicious-signer
+  // boundary are one learner-visible claim.
+  const signature = await readClaim(page, 'tcr-signature-boundary');
+  expect(signature.text).toContain('signs the pair');
+  expect(signature.text).toContain('outsider-forgery statement');
+  expect(signature.text).toContain('does not establish non-repudiation against a malicious signer');
+  expect(signature.text).toContain('chooses s first may find a collision');
+
+  // The no-extrapolation boundary is visible in the guard rails, not a
+  // footnote, and distinguishes wins from target survival.
   await panel.locator('.guard-rails > summary').click();
-  await expect(panel).toContainText('say anything about SHA-256');
+  const model = await readClaim(page, 'tcr-model-boundary');
+  expect(model.text).toContain('8-bit input and an 8-bit output');
+  expect(model.text).toContain('not a UOWHF construction or an asymptotic separation proof');
+  expect(model.text).toContain('wins for 2 of 256 keys');
+  expect(model.text).toContain('survives for 254 of 256');
+  expect(model.text).toContain('say nothing about SHA-256');
   await expect(panel).toContainText('No browser run of an 8-bit toy establishes or measures that');
-  // And the sources name the primary literature.
+
+  // Primary-publication links are pinned exactly; the previously used DOIs
+  // resolve to unrelated papers.
   await panel.locator('.sources > summary').click();
-  await expect(panel).toContainText('Universal One-Way Hash Functions and Their Cryptographic Applications');
+  const sources = await readClaim(page, 'tcr-sources');
+  expect(sources.text).toContain('Universal One-Way Hash Functions and Their Cryptographic Applications');
+  await expect(panel.locator('a', { hasText: 'Universal One-Way Hash Functions' })).toHaveAttribute(
+    'href',
+    'https://dl.acm.org/doi/10.1145/73007.73011',
+  );
+  await expect(panel.locator('a', { hasText: 'One-Way Functions are Necessary' })).toHaveAttribute(
+    'href',
+    'https://dl.acm.org/doi/10.1145/100216.100269',
+  );
 });
 
 test('target-collision results retire when the configuration moves', async ({ page }) => {

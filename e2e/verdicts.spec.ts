@@ -1115,6 +1115,9 @@ test('target-collision verdict follows the machine outcome', async ({ page }) =>
   await page.locator('#tcr-key').selectOption('10');
   await page.locator('#tcr-play').click();
   await expectVerdict(page, 'tcr-game', { text: 'NO TARGET COLLISION', state: 'pass' });
+  const loss = page.locator('[data-verdict="tcr-game"]');
+  await expect(loss).toContainText('selected adversary lost this trial');
+  await expect(loss).not.toContainText('definition held');
 });
 
 test('key-first collision verdict follows the machine outcome', async ({ page }) => {
@@ -1132,6 +1135,9 @@ test('key-first collision verdict follows the machine outcome', async ({ page })
   await page.locator('#tcr-family').selectOption('nibble-fold');
   await page.locator('#cr-play').click();
   await expectVerdict(page, 'cr-game', { text: 'NO COLLISION', state: 'pass' });
+  const loss = page.locator('[data-verdict="cr-game"]');
+  await expect(loss).toContainText('selected adversary lost this trial');
+  await expect(loss).not.toContainText('definition held');
 });
 
 test('target-first transcript claim shows every adjudicated move', async ({ page }) => {
@@ -1177,37 +1183,40 @@ test('key-first transcript claim shows the shifted pair', async ({ page }) => {
   expect(claimField(claim, 'Partner digest')).toBe(hexByte(foldedHash(0xff, 0xf0)));
 });
 
-test('target-collision separation claim matches the exhaustive analysis', async ({ page }) => {
+test('target-collision separation claim distinguishes strategy from family winnability', async ({ page }) => {
   await openTab(page, 'Target collisions');
-  // Planted family, every strategy: target-first 2/256, key-first 1,
-  // second preimage 2/256 — each recomputed here from the family definition.
+  // Planted family, every strategy: selected target-first 2/256, selected
+  // key-first 1, and family/second-preimage winnability 2/256.
   for (const strategy of ['plant-shift', 'scan-pairs', 'spray-multi'] as const) {
     await page.locator('#tcr-strategy').selectOption(strategy);
     const claim = await readClaim(page, 'tcr-separation');
-    expect(claimField(claim, 'Target-before-key chance')).toBe(formatted(2 / 256));
-    expect(claimField(claim, 'Collision-after-key chance')).toBe(formatted(1));
-    expect(claimField(claim, 'Second-preimage chance')).toBe(formatted(2 / 256));
-    expect(claimField(claim, 'Keys beating the worst target')).toBe('2 of 256');
+    expect(claimField(claim, 'Selected target-first strategy')).toBe(formatted(2 / 256));
+    expect(claimField(claim, 'Selected key-first strategy')).toBe(formatted(1));
+    expect(claimField(claim, 'Family target winnability')).toBe(formatted(2 / 256));
+    expect(claimField(claim, 'Uniform-challenge second-preimage winnability')).toBe(formatted(2 / 256));
+    expect(claimField(claim, 'Winnable inner points')).toBe('2 of 256');
     expect(Number(claim.value)).toBeCloseTo(2 / 256, 12);
   }
-  // Fold family: target-first and second preimage saturate for every
-  // strategy; key-first depends on whether the strategy's pair is a
-  // collision of the fold — the planted pair is not, the scan's is.
+
+  // Fold family: only scan enumerates a working pair. The planted strategies
+  // lose in both orders even though a partner exists for every target.
   await page.locator('#tcr-family').selectOption('nibble-fold');
-  for (const [strategy, cr] of [['plant-shift', 0], ['scan-pairs', 1], ['spray-multi', 0]] as const) {
+  for (const [strategy, selected] of [['plant-shift', 0], ['scan-pairs', 1], ['spray-multi', 0]] as const) {
     await page.locator('#tcr-strategy').selectOption(strategy);
     const claim = await readClaim(page, 'tcr-separation');
-    expect(claimField(claim, 'Target-before-key chance')).toBe(formatted(1));
-    expect(claimField(claim, 'Collision-after-key chance')).toBe(formatted(cr));
-    expect(claimField(claim, 'Second-preimage chance')).toBe(formatted(1));
-    expect(claimField(claim, 'Keys beating the worst target')).toBe('256 of 256');
+    expect(claimField(claim, 'Selected target-first strategy')).toBe(formatted(selected));
+    expect(claimField(claim, 'Selected key-first strategy')).toBe(formatted(selected));
+    expect(claimField(claim, 'Family target winnability')).toBe(formatted(1));
+    expect(claimField(claim, 'Uniform-challenge second-preimage winnability')).toBe(formatted(1));
+    expect(claimField(claim, 'Winnable inner points')).toBe('256 of 256');
+    expect(Number(claim.value)).toBe(selected);
   }
 });
 
 test('sample claim brackets deterministic and sampled orders', async ({ page }) => {
   await openTab(page, 'Target collisions');
   // Deterministic corners on the fold family: the scan wins every game in
-  // both orders, and plant-shift loses every key-first game.
+  // both orders, while the direct planted-pair strategy loses both.
   await page.locator('#tcr-family').selectOption('nibble-fold');
   await page.locator('#tcr-strategy').selectOption('scan-pairs');
   await setNumber(page, '#tcr-trials', '64');
@@ -1219,7 +1228,7 @@ test('sample claim brackets deterministic and sampled orders', async ({ page }) 
   await page.locator('#tcr-strategy').selectOption('plant-shift');
   await page.locator('#tcr-sample-run').click();
   claim = await readClaim(page, 'tcr-sample');
-  expect(claimField(claim, 'Target-first wins')).toContain('64 of 64');
+  expect(claimField(claim, 'Target-first wins')).toContain('0 of 64');
   expect(claimField(claim, 'Key-first wins')).toContain('0 of 64');
 
   // The sampled case on the planted family: whatever the uniform keys drew,

@@ -34,9 +34,10 @@ import {
  * Every fixed number below was reproduced by a standalone script that
  * re-implemented the families from their definitions BEFORE this module was
  * written: the planted family has exactly one inner colliding pair, a
- * committed target survives on exactly 2 of 256 keys whatever the target, the
- * plant-shift collision game wins on all 256 keys, the fold family loses both
- * orders everywhere, and the second-preimage count is 512 of 65,536.
+ * committed target is beatable on exactly 2 of 256 keys whatever the target,
+ * the plant-shift collision game wins on all 256 keys, a full scan beats the
+ * fold family in either order, and the planted-family uniform-challenge
+ * second-preimage count is 512 of 65,536.
  */
 
 const planted: TcrFamilyId = 'planted-pair';
@@ -45,14 +46,19 @@ const strategies: readonly TcrStrategyId[] = ['plant-shift', 'scan-pairs', 'spra
 
 describe('the keyed families', () => {
   it('plants exactly one inner colliding pair at {0x0F, 0xF0}', () => {
-    expect(familyFacts(planted).innerCollisionPairs).toEqual([[0x0f, 0xf0]]);
+    expect(familyFacts(planted).representativeInnerCollisions).toEqual([[0x0f, 0xf0]]);
+    expect(familyFacts(planted).unorderedInnerCollisionCount).toBe(1);
     expect(familyInner(planted)(0xf0)).toBe(0x0f);
     expect(familyInner(planted)(0x0f)).toBe(0x0f);
     expect(familyInner(planted)(0x00)).toBe(0x00);
   });
 
-  it('folds the high nibble away, leaving fifteen partners everywhere', () => {
-    expect(familyFacts(fold).innerCollisionPairs).toHaveLength(240);
+  it('distinguishes representative fold collisions from all unordered pairs', () => {
+    // There are 16 digest buckets of size 16. The discovery list stores one
+    // first-seen representative for each of the 15 later inputs per bucket,
+    // while the full unordered count is 16 * C(16, 2) = 1,920.
+    expect(familyFacts(fold).representativeInnerCollisions).toHaveLength(240);
+    expect(familyFacts(fold).unorderedInnerCollisionCount).toBe(1_920);
     expect(familyInner(fold)(0x12)).toBe(0x02);
     expect(familyInner(fold)(0xf2)).toBe(0x02);
   });
@@ -205,21 +211,26 @@ describe('the strategies under both orders', () => {
   });
 
   it('loses no partner move on the planted family when no partner exists', () => {
-    // Key 0x10 against committed 0xF0: no partner; the transcript records the
-    // failed scan instead of inventing a submission.
+    // Key 0x10 against committed 0xF0: the direct planted strategy has no
+    // candidate. It does not silently switch to an exhaustive scan.
     const record = playTcrGame(planted, 'plant-shift', () => 0x10);
     expect(record.partner).toBeNull();
     expect(record.won).toBe(false);
     const last = record.transcript.at(-1)!;
     expect(last.accepted).toBe(false);
-    expect(last.reason).toContain('No partner exists');
+    expect(last.reason).toContain('selected planted candidate set');
   });
 
-  it('the fold family falls target-first under every strategy', () => {
-    for (const strategy of strategies) {
+  it('keeps the direct planted strategy distinct from the exhaustive scan', () => {
+    for (const strategy of ['plant-shift', 'spray-multi'] as const) {
+      let wins = 0;
       for (let key = 0; key < 256; key += 1) {
-        expect(playTcrGame(fold, strategy, () => key).won).toBe(true);
+        if (playTcrGame(fold, strategy, () => key).won) wins += 1;
       }
+      expect(wins).toBe(0);
+    }
+    for (let key = 0; key < 256; key += 1) {
+      expect(playTcrGame(fold, 'scan-pairs', () => key).won).toBe(true);
     }
   });
 
@@ -241,24 +252,27 @@ describe('the strategies under both orders', () => {
   });
 });
 
-describe('exact analysis by exhaustion', () => {
-  it('pins the planted family: TCR 2/256 for the worst target, CR 1, SPR 2/256', () => {
+describe('exact analysis by key enumeration and mask symmetry', () => {
+  it('pins selected strategies separately from planted-family winnability', () => {
     for (const strategy of strategies) {
       const analysis = exactAnalysis(planted, strategy);
-      expect(analysis.tcrWorstTargetWinChance).toBeCloseTo(2 / 256, 12);
-      expect(analysis.crWinChance).toBe(1);
-      expect(analysis.sprWinChance).toBeCloseTo(2 / 256, 12);
-      expect(analysis.worstTargetKeys).toHaveLength(2);
+      expect(analysis.selectedTcrWinChance).toBeCloseTo(2 / 256, 12);
+      expect(analysis.selectedCrWinChance).toBe(1);
+      expect(analysis.familyTargetWinnableChance).toBeCloseTo(2 / 256, 12);
+      expect(analysis.uniformChallengeSecWinnableChance).toBeCloseTo(2 / 256, 12);
+      expect(analysis.winnableInnerPoints).toHaveLength(2);
     }
   });
 
-  it('pins the fold family: TCR 1, SPR 1, and CR per strategy', () => {
+  it('pins fold-family strategy outcomes apart from family winnability', () => {
     for (const strategy of strategies) {
       const analysis = exactAnalysis(fold, strategy);
-      expect(analysis.tcrWorstTargetWinChance).toBe(1);
-      expect(analysis.sprWinChance).toBe(1);
-      expect(analysis.worstTargetKeys).toHaveLength(256);
-      expect(analysis.crWinChance).toBe(strategy === 'scan-pairs' ? 1 : 0);
+      const strategyChance = strategy === 'scan-pairs' ? 1 : 0;
+      expect(analysis.selectedTcrWinChance).toBe(strategyChance);
+      expect(analysis.selectedCrWinChance).toBe(strategyChance);
+      expect(analysis.familyTargetWinnableChance).toBe(1);
+      expect(analysis.uniformChallengeSecWinnableChance).toBe(1);
+      expect(analysis.winnableInnerPoints).toHaveLength(256);
     }
   });
 
@@ -266,8 +280,8 @@ describe('exact analysis by exhaustion', () => {
     // exactAnalysis computes one number for every target at once, on the
     // strength of the symmetry u = x ⊕ s. This test does NOT trust it: it
     // brute-forces the winnable-key count for sixteen spread targets, directly
-    // from the family definition, and requires the module's number to agree —
-    // and to agree with EVERY target, not just the ones a strategy commits.
+    // from the family definition, and requires the module's number to agree
+    // with each checked target rather than only a strategy's committed target.
     const winnableKeys = (family: TcrFamilyId, target: number): number => {
       let count = 0;
       for (let s = 0; s < 256; s += 1) {
@@ -285,7 +299,7 @@ describe('exact analysis by exhaustion', () => {
       const analysis = exactAnalysis(family, 'scan-pairs');
       for (let step = 0; step < 256; step += 16) {
         const target = (step * 7 + 13) & 0xff;
-        expect(winnableKeys(family, target)).toBe(analysis.worstTargetKeys.length);
+        expect(winnableKeys(family, target)).toBe(analysis.winnableInnerPoints.length);
       }
     }
   });
@@ -298,8 +312,31 @@ describe('exact analysis by exhaustion', () => {
       for (let s = 0; s < 256; s += 1) {
         if (playTcrGame(family, 'scan-pairs', () => s).won) wins.add(s);
       }
-      expect(wins.size).toBe(exactAnalysis(family, 'scan-pairs').worstTargetKeys.length);
+      expect(wins.size).toBe(exactAnalysis(family, 'scan-pairs').winnableInnerPoints.length);
       expect(wins.size).toBe(family === planted ? 2 : 256);
+    }
+  });
+
+  it('independently exhausts the uniform-key, uniform-challenge second-preimage game', () => {
+    const exhaustiveUniformChallengeChance = (family: TcrFamilyId): number => {
+      let winnable = 0;
+      for (let key = 0; key < 256; key += 1) {
+        const digestMultiplicities = new Map<number, number>();
+        for (let challenge = 0; challenge < 256; challenge += 1) {
+          const digest = familyHash(family, key, challenge);
+          digestMultiplicities.set(digest, (digestMultiplicities.get(digest) ?? 0) + 1);
+        }
+        for (let challenge = 0; challenge < 256; challenge += 1) {
+          if (digestMultiplicities.get(familyHash(family, key, challenge))! > 1) winnable += 1;
+        }
+      }
+      return winnable / (256 * 256);
+    };
+
+    for (const family of [planted, fold] as const) {
+      expect(exhaustiveUniformChallengeChance(family)).toBe(
+        exactAnalysis(family, 'scan-pairs').uniformChallengeSecWinnableChance,
+      );
     }
   });
 });
@@ -340,6 +377,13 @@ describe('bounded sampling', () => {
     expect(tcrWin).toMatchObject({ wins: 64, losses: 0, trials: 64 });
     const cr = sampleGames(planted, 'collision-after-key', 'plant-shift', 32, () => 0x7f);
     expect(cr).toMatchObject({ wins: 32, losses: 0, trials: 32 });
+  });
+
+  it('does not let the direct planted strategy inherit scan success on the fold family', () => {
+    const direct = sampleGames(fold, 'target-before-key', 'plant-shift', 64, () => 0x10);
+    expect(direct).toMatchObject({ wins: 0, losses: 64, trials: 64 });
+    const scan = sampleGames(fold, 'target-before-key', 'scan-pairs', 64, () => 0x10);
+    expect(scan).toMatchObject({ wins: 64, losses: 0, trials: 64 });
   });
 
   it('rejects trial counts outside the teaching budget', () => {

@@ -1,9 +1,9 @@
 /**
  * S09 — Target collision resistance as an order-of-play game.
  *
- * A target-collision (universal one-way hash) family is keyed: H_s(x) =
- * h(x ⊕ s). The lesson's two families are small on purpose so every claim on
- * the page can be verified by exhaustive computation:
+ * This bounded target-collision lesson uses keyed toys H_s(x) = h(x ⊕ s).
+ * The two families are small on purpose so every claim on the page can be
+ * verified by exhaustive computation:
  *
  *   planted-pair — h is the identity on {0,1}^8 except h(0xF0) = 0x0F, so the
  *     family has exactly one colliding inner pair {0x0F, 0xF0}, at a KNOWN
@@ -12,9 +12,10 @@
  *     collision resistance survives: a target committed before the key lands
  *     on the planted pair for exactly 2 of the 256 keys, whatever the target.
  *
- *   nibble-fold — h(u) = u & 0x0F. Every input has fifteen partners, so both
- *     orders fall. Input masking does not rescue an over-compressing inner
- *     function; this family is the exhibit's negative control.
+ *   nibble-fold — h(u) = u & 0x0F. Every input has fifteen partners, so an
+ *     exhaustive scan wins in both orders. The direct planted-pair strategy
+ *     still loses because its published pair is not a fold collision; this
+ *     family is the exhibit's strategy-control case.
  *
  * The two challenge orders (Naor–Yung STOC '89):
  *
@@ -26,13 +27,14 @@
  * The machines below enforce each order as a state machine: every move is
  * accepted or refused with a reason, and the refusals are part of the
  * teaching, not an error path. A second preimage (SPR) is defined for
- * contrast: the key and the challenge x are both handed to the adversary; it
- * only supplies x′.
+ * contrast: the key and an independently uniform challenge x are both handed
+ * to the adversary; it only supplies x′.
  *
- * NOT A REAL HASH. An 8-bit domain is exhaustible by design; the exact counts
- * on this page are properties of these toy families, never statements about
- * SHA-256, and UOWHF security is an asymptotic property of families against
- * polynomial-time adversaries that no browser run establishes.
+ * NOT A REAL HASH OR UOWHF CONSTRUCTION. This fixed, length-preserving 8-bit
+ * model illustrates challenge order only. The exact counts are properties of
+ * these toys, never statements about SHA-256, and UOWHF security is an
+ * asymptotic property of families against polynomial-time adversaries that no
+ * browser run establishes.
  */
 
 export type TcrFamilyId = 'planted-pair' | 'nibble-fold';
@@ -67,18 +69,26 @@ export interface FamilyFacts {
   readonly id: TcrFamilyId;
   readonly label: string;
   readonly description: string;
-  /** Inner colliding pairs of h, exhaustive. */
-  readonly innerCollisionPairs: readonly [number, number][];
+  /** One first-seen representative for each later colliding inner input. */
+  readonly representativeInnerCollisions: readonly [number, number][];
+  /** Every unordered pair {u, u'} with u < u' and h(u) = h(u'). */
+  readonly unorderedInnerCollisionCount: number;
 }
 
 export function familyFacts(id: TcrFamilyId): FamilyFacts {
   const h = familyInner(id);
   const seen = new Map<number, number>();
-  const pairs: [number, number][] = [];
+  const representatives: [number, number][] = [];
+  const bucketSizes = new Map<number, number>();
   for (let u = 0; u < 256; u += 1) {
     const y = h(u);
-    if (seen.has(y)) pairs.push([seen.get(y)!, u]);
+    bucketSizes.set(y, (bucketSizes.get(y) ?? 0) + 1);
+    if (seen.has(y)) representatives.push([seen.get(y)!, u]);
     else seen.set(y, u);
+  }
+  let unorderedInnerCollisionCount = 0;
+  for (const size of bucketSizes.values()) {
+    unorderedInnerCollisionCount += (size * (size - 1)) / 2;
   }
   return {
     id,
@@ -87,7 +97,8 @@ export function familyFacts(id: TcrFamilyId): FamilyFacts {
       id === 'planted-pair'
         ? 'h(u) = u except h(0xF0) = 0x0F: exactly one colliding inner pair {0x0F, 0xF0}, at a published location.'
         : 'h(u) = u & 0x0F: the high nibble is discarded, so every input has exactly fifteen collision partners.',
-    innerCollisionPairs: pairs,
+    representativeInnerCollisions: representatives,
+    unorderedInnerCollisionCount,
   };
 }
 
@@ -280,6 +291,17 @@ function firstPartner(family: TcrFamilyId, key: number, x: number): number | nul
 }
 
 /**
+ * The planted-pair strategy uses only its published pair. It does not silently
+ * turn into the exhaustive scan strategy after the key is drawn.
+ */
+function plantedPartnerForTarget(key: number, target: number): number | null {
+  const innerTarget = (target ^ key) & 0xff;
+  if (innerTarget === PLANTED_A) return (PLANTED_B ^ key) & 0xff;
+  if (innerTarget === PLANTED_B) return (PLANTED_A ^ key) & 0xff;
+  return null;
+}
+
+/**
  * playTcrGame runs one complete target-before-key game. The strategies script
  * moves at the machine; every refusal stays in the transcript. The committed
  * target precedes the key draw in every case, including spray-multi, whose
@@ -313,7 +335,10 @@ export function playTcrGame(
         move: 'submit partner',
         value: null,
         accepted: false,
-        reason: 'No partner exists under this key: the scan of all 255 other inputs found no equal hash.',
+        reason:
+          strategy === 'scan-pairs'
+            ? 'The exhaustive scan of all 255 other inputs found no equal hash under this key.'
+            : 'The selected planted candidate set produced no partner for this target and key.',
       });
       state = { ...state, partner: null, phase: 'resolved' };
       return;
@@ -327,7 +352,7 @@ export function playTcrGame(
     case 'plant-shift':
       commit(PLANTED_A);
       drawKey();
-      submit(state.key === null ? null : firstPartner(family, state.key, state.target ?? 0));
+      submit(state.key === null ? null : plantedPartnerForTarget(state.key, state.target ?? 0));
       break;
     case 'scan-pairs':
       commit(0x00);
@@ -341,7 +366,9 @@ export function playTcrGame(
       commit(PLANTED_A);
       commit(PLANTED_B);
       drawKey();
-      submit(state.key === null ? null : firstPartner(family, state.key, state.target ?? 0));
+      // Continue with the surviving member of the same planted candidate set;
+      // unlike scan-pairs, spray never enumerates the domain for a replacement.
+      submit(state.key === null ? null : plantedPartnerForTarget(state.key, state.target ?? 0));
       break;
   }
 
@@ -449,26 +476,28 @@ export function playCrGame(
   };
 }
 
-/* ── Exact analysis, by exhaustion over the whole key space ─────────── */
+/* ── Exact analysis, by key enumeration and mask symmetry ──────────── */
 
 export interface ExactAnalysis {
-  /** Target-before-key win chance for the worst committed target (exact). */
-  readonly tcrWorstTargetWinChance: number;
-  /** Collision-after-key win chance for the strategy (exact, over keys). */
-  readonly crWinChance: number;
-  /** Second-preimage win chance over uniform key and challenge (exact). */
-  readonly sprWinChance: number;
+  /** Target-before-key win chance for the selected strategy (exact over keys). */
+  readonly selectedTcrWinChance: number;
+  /** Collision-after-key win chance for the selected strategy (exact over keys). */
+  readonly selectedCrWinChance: number;
+  /** Fraction of keys for which any partner exists for any fixed target. */
+  readonly familyTargetWinnableChance: number;
+  /** Winnability over a uniform key and independently uniform challenge x. */
+  readonly uniformChallengeSecWinnableChance: number;
   /**
-   * Inner points with a collision partner. By the mask symmetry these are in
-   * one-to-one correspondence with the keys beating any committed target
-   * (s = x ⊕ u), so the count is rendered as "keys beating the worst target".
+   * Inner points with a collision partner. By mask symmetry, their count is
+   * the number of keys under which any fixed target has some partner.
    */
-  readonly worstTargetKeys: readonly number[];
+  readonly winnableInnerPoints: readonly number[];
 }
 
 /**
- * The input mask makes the target-before-key and second-preimage chances one
- * pass each — by symmetry, not by sampling:
+ * The input mask makes the family-level target and uniform-challenge
+ * second-preimage winnability rates computable in one pass — by symmetry, not
+ * by sampling:
  *
  *   A committed target x is beaten by key s exactly when u = x ⊕ s has a
  *   collision partner under the inner h. As s runs over all 256 keys, u runs
@@ -477,38 +506,45 @@ export interface ExactAnalysis {
  *
  *   The second-preimage game hands the adversary (s, x) with the key in hand;
  *   u = x ⊕ s is uniform there too, so its winnable count is the same number.
- *   The two games coincide on every family of the form h(x ⊕ s); they remain
- *   different definitions, because the order of play differs and TCR lets the
- *   adversary choose the target.
+ *   These two existence rates coincide for this masked family; the security
+ *   games remain different definitions, and their adversaries need not use the
+ *   same strategy.
  */
 export function exactAnalysis(family: TcrFamilyId, strategy: TcrStrategyId): ExactAnalysis {
   // Inner points with a collision partner — the mask-symmetric winnable set.
-  const worstKeys: number[] = [];
+  const winnableInnerPoints: number[] = [];
   for (let u = 0; u < 256; u += 1) {
     const h = familyInner(family);
     const digest = h(u);
     for (let other = 0; other < 256; other += 1) {
       if (other !== u && h(other) === digest) {
-        worstKeys.push(u);
+        winnableInnerPoints.push(u);
         break;
       }
     }
   }
-  const tcrChance = worstKeys.length / 256;
+  const familyTargetWinnableChance = winnableInnerPoints.length / 256;
+
+  // Target-before-key: run the selected strategy's actual rule per key. This
+  // is intentionally separate from the family-level existence of a partner.
+  let selectedTcrWins = 0;
+  for (let s = 0; s < 256; s += 1) {
+    if (playTcrGame(family, strategy, () => s).won) selectedTcrWins += 1;
+  }
 
   // Collision-after-key: run the strategy's actual choice rule per key.
-  let crWins = 0;
+  let selectedCrWins = 0;
   for (let s = 0; s < 256; s += 1) {
     const record = playCrGame(family, strategy, () => s);
-    if (record.won) crWins += 1;
+    if (record.won) selectedCrWins += 1;
   }
-  const crChance = crWins / 256;
 
   return {
-    tcrWorstTargetWinChance: tcrChance,
-    crWinChance: crChance,
-    sprWinChance: tcrChance,
-    worstTargetKeys: worstKeys,
+    selectedTcrWinChance: selectedTcrWins / 256,
+    selectedCrWinChance: selectedCrWins / 256,
+    familyTargetWinnableChance,
+    uniformChallengeSecWinnableChance: familyTargetWinnableChance,
+    winnableInnerPoints,
   };
 }
 

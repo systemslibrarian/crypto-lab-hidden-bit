@@ -44,7 +44,7 @@ function randomByte(): number {
 const STRATEGY_LABELS: Readonly<Record<TcrStrategyId, { label: string; note: string }>> = {
   'plant-shift': {
     label: 'Plant-shift — knows the planted pair',
-    note: 'Commits the planted point 0xF0 target-first; key-first it shifts {0xF0, 0x0F} past the input mask.',
+    note: 'Uses only {0xF0, 0x0F}: target-first it commits 0xF0 and tests that pair after the key; key-first it shifts the pair past the mask.',
   },
   'scan-pairs': {
     label: 'Scan — structure-blind',
@@ -52,7 +52,7 @@ const STRATEGY_LABELS: Readonly<Record<TcrStrategyId, { label: string; note: str
   },
   'spray-multi': {
     label: 'Spray — the collision game’s native plan',
-    note: 'Tries to commit two targets up front. The target-before-key machine commits exactly one; the refusal stays on tape.',
+    note: 'Uses the same planted candidate set but tries to commit both targets up front. Target-first, the second commit is refused and stays on tape.',
   },
 };
 
@@ -63,7 +63,7 @@ export function initTcr(): void {
       <div>
         <p class="section-index">TARGET COLLISION RESISTANCE · ORDER OF PLAY · S09</p>
         <h2>The same family, two orders of play</h2>
-        <p>A keyed family H<sub>s</sub>(x) = h(x ⊕ s) is played as two different games. Target-first, the adversary commits x before the key exists; key-first, it sees s and then picks both inputs. The machines below enforce each order as a state machine and refuse every out-of-order move on the transcript.</p>
+        <p>A keyed family H<sub>s</sub>(x) = h(x ⊕ s) is played as two different games. Target-first, the adversary commits x before the key exists; key-first, it sees s and then picks both inputs. The machines enforce each order and record every accepted or refused move that the selected strategy actually attempts.</p>
       </div>
       <span class="experiment-number">EXHIBIT 08</span>
     </div>
@@ -132,8 +132,8 @@ export function initTcr(): void {
 
     <section class="proof-act" aria-labelledby="tcr-separation-title">
       <div class="proof-act-heading">
-        <div><p class="section-index">ACT B · THE MEASURED SEPARATION</p><h3 id="tcr-separation-title">Exact by exhaustion, then a sample</h3></div>
-        <p>The exact chances below are computed over the entire key space — all 256 keys, and for target-first over every committed target — not estimated. The sampler then plays real games with uniform keys and brackets its win rates with Wilson 95% intervals.</p>
+        <div><p class="section-index">ACT B · THE MEASURED ORDER EFFECT</p><h3 id="tcr-separation-title">Exact by key enumeration and mask symmetry, then a sample</h3></div>
+        <p>The selected-strategy chances enumerate all 256 keys. Family winnability is derived exactly from the bijection u = x ⊕ s after enumerating all 256 inner points; an independent test exhausts every uniform key/challenge pair. The sampler then plays real games with uniform keys and brackets its win rates with Wilson 95% intervals.</p>
       </div>
       <div class="control-deck">
         <div class="field">
@@ -156,31 +156,31 @@ export function initTcr(): void {
     <section class="proof-act" aria-labelledby="tcr-definitions-title">
       <div class="proof-act-heading">
         <div><p class="section-index">ACT C · THE THREE NOTIONS AND THE SIGNED PAIR</p><h3 id="tcr-definitions-title">Which game is which</h3></div>
-        <p>Collision resistance, second-preimage resistance and target collision resistance are three different games over the same family. The first is the strongest: any adversary that wins either of the other two has produced a collision. Target collision resistance is strictly weaker — this exhibit's planted family is the witness.</p>
+        <p>Collision resistance, second-preimage resistance and target collision resistance are different games over a keyed family. A successful target- or second-preimage adversary has produced a collision, but the converse need not hold. This finite planted toy illustrates that order-of-play pattern; it is not an asymptotic separation proof or a secure UOWHF construction.</p>
       </div>
-      <div class="definition-table">
+      <div class="definition-table" data-claim="tcr-definitions">
         <table>
           <caption class="sr-only">The three collision-style notions, their orders of play and this exhibit's measured chances.</caption>
           <thead><tr><th scope="col">Notion</th><th scope="col">Order of play</th><th scope="col">Who supplies the target</th></tr></thead>
           <tbody>
             <tr><th scope="row">Collision resistance</th><td>key first, then both inputs</td><td>the adversary picks x and x′ after the key</td></tr>
-            <tr><th scope="row">Second preimage</th><td>key and challenge first, then the partner</td><td>the challenger hands over x with the key already public</td></tr>
-            <tr><th scope="row">Target collision (UOWHF)</th><td>target first, then the key, then the partner</td><td>the adversary commits x before any key exists</td></tr>
+            <tr><th scope="row">Second preimage</th><td>key and uniformly sampled challenge first, then the partner</td><td>the challenger samples x uniformly and hands it over with the key</td></tr>
+            <tr><th scope="row">Target collision</th><td>target first, then the key, then the partner</td><td>the adversary commits x before any key exists</td></tr>
           </tbody>
         </table>
       </div>
-      <div class="result-block">
+      <div class="result-block" data-claim="tcr-signature-boundary">
         <h3>The signed (key, digest) pair</h3>
-        <p>Hash-then-sign with a keyed family signs the pair (s, H<sub>s</sub>(x)) together, so a signature is bound to both the hash key and the digest. The forgery statement is a target collision: find x′ ≠ x with H<sub>s</sub>(x′) = H<sub>s</sub>(x), and the old signature verifies for the new message. When the message is committed before the signing session draws its hash key — the ordinary case for a document that already exists — the forger faces exactly the target-before-key order. That order-of-play observation is why Naor and Yung proposed universal one-way hashing for signatures.</p>
+        <p>Hash-then-sign with a keyed family signs the pair (s, H<sub>s</sub>(x)) together, so a signature is bound to both the hash key and the digest. The outsider-forgery statement is a target collision: find x′ ≠ x with H<sub>s</sub>(x′) = H<sub>s</sub>(x), and the old signature verifies for the new message. When the message is fixed before the signing session draws its hash key, the outsider faces the target-before-key order. This does not establish non-repudiation against a malicious signer: a signer who chooses s first may find a collision and later equivocate between its messages; the UOWHF survey points to collision-resistant hashing when that stronger signer-facing property is required.</p>
       </div>
     </section>
 
     <details class="guard-rails">
       <summary>Teaching boundaries</summary>
       <div class="guard-grid">
-        <p><strong>Exhaustible by design:</strong> an 8-bit domain has 256 inputs and 256 keys, so every exact number here is a complete count, not an estimate. That is the point of the toy; it is also why none of these numbers say anything about SHA-256, whose domain and key spaces are not exhaustible.</p>
+        <p data-claim="tcr-model-boundary"><strong>Finite order-game model:</strong> this fixed map has an 8-bit input and an 8-bit output; it is length-preserving, exhaustible and not a UOWHF construction or an asymptotic separation proof. On the planted toy an exhaustive target-first adversary wins for 2 of 256 keys, so the committed target survives for 254 of 256. Those counts say nothing about SHA-256.</p>
         <p><strong>No asymptotic claim:</strong> UOWHF security is a property of a family indexed by a security parameter against probabilistic polynomial-time adversaries (Rompel showed one-way functions suffice). No browser run of an 8-bit toy establishes or measures that.</p>
-        <p><strong>Strategy-specific results:</strong> the plant-shift and spray strategies exploit the planted pair of the planted family; on the nibble-fold family the same submissions lose the key-first game because {0xF0, 0x0F} is not a collision of the fold. The structure-blind scan wins key-first on both. The exhibit displays the strategy it measured.</p>
+        <p><strong>Strategy-specific results:</strong> plant-shift and spray use only the published planted pair in both games; scan-pairs alone enumerates the domain. On the nibble-fold family the planted submissions lose in both orders, while the structure-blind scan wins in both. The selected-strategy rows are therefore separate from the family-winnability rows.</p>
         <p><strong>Win rate, not guessing advantage:</strong> a collision game has no hidden coin, so the natural statistic is the win probability itself. The lab's guessing games report 2p − 1; this exhibit reports p and its Wilson interval, and conflating the two would misstate both.</p>
         <p><strong>One family per game:</strong> the negative-control family is a second small family, not the lesson's main family; the roadmap's one-family requirement is the planted pair, which runs under both orders above.</p>
         <p><strong>Related but different exhibits:</strong> the PRP/PRF exhibit counts collisions to distinguish a permutation from a function — a different notion with its own bound. Hash Zoo teaches fixed-key preimage and collision notions; nothing there is keyed or order-of-play.</p>
@@ -188,7 +188,7 @@ export function initTcr(): void {
     </details>
     <details class="sources">
       <summary>Sources</summary>
-      <p>Naor, M. and Yung, M., <a href="https://dl.acm.org/doi/10.1145/73007.73013"><em>Universal One-Way Hash Functions and Their Cryptographic Applications</em></a>, STOC 1989 — the order-of-play definition and the signature motivation. Rompel, J., <a href="https://dl.acm.org/doi/10.1145/100216.100273"><em>One-Way Functions are Necessary and Sufficient for Secure Signatures</em></a>, STOC 1990 — target collision resistance from any one-way function. The encyclopedia's <a href="https://doi.org/10.1007/978-3-030-71522-9_624">UOWHF entry (pp. 6634–6637)</a> surveys both. Fixed-key hash notions: <a href="https://systemslibrarian.github.io/crypto-lab-hash-zoo/">Hash Zoo</a>.</p>
+      <p data-claim="tcr-sources">Naor, M. and Yung, M., <a href="https://dl.acm.org/doi/10.1145/73007.73011"><em>Universal One-Way Hash Functions and Their Cryptographic Applications</em></a>, STOC 1989 — the target-before-key definition and signature motivation. Rompel, J., <a href="https://dl.acm.org/doi/10.1145/100216.100269"><em>One-Way Functions are Necessary and Sufficient for Secure Signatures</em></a>, STOC 1990 — construction from any one-way function. Rogaway and Shrimpton's <a href="https://www.iacr.org/archive/fse2004/30170373/30170373.pdf"><em>Cryptographic Hash-Function Basics</em></a> separates collision and second-preimage games in a concrete-security framework. The encyclopedia's <a href="https://doi.org/10.1007/978-3-030-71522-9_624">UOWHF entry</a> surveys the order, signed pair and malicious-signer limitation. Fixed-key hash notions: <a href="https://systemslibrarian.github.io/crypto-lab-hash-zoo/">Hash Zoo</a>.</p>
     </details>
   `;
 
@@ -255,7 +255,7 @@ export function initTcr(): void {
         tcrVerdict.innerHTML = `<div><strong>TARGET COLLISION</strong><p>The partner hashes equal under the drawn key: the committed target did not survive this family's target-before-key game.</p></div>`;
       } else {
         tcrVerdict.dataset.tone = 'pass';
-        tcrVerdict.innerHTML = `<div><strong>NO TARGET COLLISION</strong><p>No partner matched the committed target's digest under the drawn key. The definition held this game.</p></div>`;
+        tcrVerdict.innerHTML = `<div><strong>NO TARGET COLLISION</strong><p>The selected adversary lost this trial; one loss does not establish target collision resistance.</p></div>`;
       }
     }
 
@@ -292,7 +292,7 @@ export function initTcr(): void {
         crVerdict.innerHTML = `<div><strong>COLLISION</strong><p>Two distinct inputs hash equal under the published key: the family's collision-after-key game is broken by this strategy.</p></div>`;
       } else {
         crVerdict.dataset.tone = 'pass';
-        crVerdict.innerHTML = `<div><strong>NO COLLISION</strong><p>The submitted partner did not match the chosen x under this key. The definition held this game.</p></div>`;
+        crVerdict.innerHTML = `<div><strong>NO COLLISION</strong><p>The selected adversary lost this trial; one loss does not establish collision resistance.</p></div>`;
       }
     }
   };
@@ -300,14 +300,15 @@ export function initTcr(): void {
   const renderAnalysis = (): void => {
     const separation = query<HTMLElement>('#tcr-separation', panel);
     const analysis = exactAnalysis(view.family, view.strategy);
-    separation.dataset.value = String(analysis.tcrWorstTargetWinChance);
+    separation.dataset.value = String(analysis.selectedTcrWinChance);
     separation.innerHTML = `
       <h3>Exact analysis</h3>
       <dl class="value-list">
-        <div class="value-row"><dt>Target-before-key chance</dt><dd>${formatNumber(analysis.tcrWorstTargetWinChance)}</dd></div>
-        <div class="value-row"><dt>Collision-after-key chance</dt><dd>${formatNumber(analysis.crWinChance)}</dd></div>
-        <div class="value-row"><dt>Second-preimage chance</dt><dd>${formatNumber(analysis.sprWinChance)}</dd></div>
-        <div class="value-row"><dt>Keys beating the worst target</dt><dd>${analysis.worstTargetKeys.length} of 256</dd></div>
+        <div class="value-row"><dt>Selected target-first strategy</dt><dd>${formatNumber(analysis.selectedTcrWinChance)}</dd></div>
+        <div class="value-row"><dt>Selected key-first strategy</dt><dd>${formatNumber(analysis.selectedCrWinChance)}</dd></div>
+        <div class="value-row"><dt>Family target winnability</dt><dd>${formatNumber(analysis.familyTargetWinnableChance)}</dd></div>
+        <div class="value-row"><dt>Uniform-challenge second-preimage winnability</dt><dd>${formatNumber(analysis.uniformChallengeSecWinnableChance)}</dd></div>
+        <div class="value-row"><dt>Winnable inner points</dt><dd>${analysis.winnableInnerPoints.length} of 256</dd></div>
       </dl>
       <p>${escapeHtml(familyFacts(view.family).description)}</p>`;
   };
