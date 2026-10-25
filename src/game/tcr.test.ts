@@ -20,10 +20,12 @@ import {
   playTcrGame,
   sampleGames,
   tcrApplyKey,
+  tcrApplyForfeit,
   tcrApplyPartner,
   tcrApplyTarget,
   tcrCommitTarget,
   tcrDrawKey,
+  tcrForfeit,
   tcrSubmitPartner,
   tcrWon,
   type TcrFamilyId,
@@ -104,6 +106,9 @@ describe('the target-before-key machine', () => {
     const fresh = freshTcrState(planted);
     expect(tcrDrawKey(fresh, 0x10)).toMatchObject({ accepted: false, reason: expect.stringContaining('after a target') });
     const committed = tcrApplyTarget(fresh, 0x42);
+    const replayed = tcrDrawKey(committed, 0x10);
+    expect(replayed).toMatchObject({ accepted: true, reason: expect.stringContaining('revealed after the commit') });
+    expect(replayed.reason).not.toContain('uniform');
     const keyed = tcrApplyKey(committed, 0x10);
     expect(tcrSubmitPartner(committed, 0x43)).toMatchObject({
       accepted: false,
@@ -117,6 +122,25 @@ describe('the target-before-key machine', () => {
     const outcome = tcrSubmitPartner(keyed, 0x42);
     expect(outcome.accepted).toBe(false);
     expect(outcome.reason).toContain('differ from the committed target');
+  });
+
+  it('treats no answer as a machine-validated forfeit, not a rejected partner', () => {
+    const fresh = freshTcrState(planted);
+    expect(tcrForfeit(fresh)).toMatchObject({
+      accepted: false,
+      reason: expect.stringContaining('only when a partner is due'),
+    });
+
+    const keyed = tcrApplyKey(tcrApplyTarget(fresh, 0x42), 0x10);
+    const outcome = tcrForfeit(keyed);
+    expect(outcome).toMatchObject({
+      accepted: true,
+      reason: expect.stringContaining('forfeited without a partner'),
+    });
+    const resolved = tcrApplyForfeit(keyed);
+    expect(resolved).toMatchObject({ phase: 'resolved', partner: null });
+    expect(tcrWon(resolved)).toBe(false);
+    expect(tcrForfeit(resolved)).toMatchObject({ accepted: false });
   });
 
   it('resolves a win exactly when the partner hash equals the target hash', () => {
@@ -210,15 +234,15 @@ describe('the strategies under both orders', () => {
     expect(cr.transcript.every((entry) => entry.accepted)).toBe(true);
   });
 
-  it('loses no partner move on the planted family when no partner exists', () => {
+  it('records an accepted no-answer forfeit when the planted candidate is unavailable', () => {
     // Key 0x10 against committed 0xF0: the direct planted strategy has no
     // candidate. It does not silently switch to an exhaustive scan.
     const record = playTcrGame(planted, 'plant-shift', () => 0x10);
     expect(record.partner).toBeNull();
     expect(record.won).toBe(false);
     const last = record.transcript.at(-1)!;
-    expect(last.accepted).toBe(false);
-    expect(last.reason).toContain('selected planted candidate set');
+    expect(last).toMatchObject({ move: 'forfeit (no partner)', value: null, accepted: true });
+    expect(last.reason).toContain('forfeited without a partner');
   });
 
   it('keeps the direct planted strategy distinct from the exhaustive scan', () => {

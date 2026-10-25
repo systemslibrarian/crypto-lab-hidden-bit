@@ -172,7 +172,7 @@ async function optionValues(page: Page, selector: string): Promise<string[]> {
  *
  * Controls enumerated, by exhibit:
  *
- *   tab list (7)       — each tab renders a different panel.
+ *   tab list (8)       — each tab renders a different panel.
  *   #cpa-scheme (7)    — every option, read from the DOM.
  *   #cpa-adversary (3) — every option, walked on chained-IV CBC, the one scheme
  *                        that offers all three.
@@ -195,11 +195,15 @@ async function optionValues(page: Page, selector: string): Promise<string[]> {
  *                        adjacent H0-to-H5 prefix and a reset.
  *   #hybrid-oracle-run, #hardcore-run — fresh executable cache checks and one
  *                        uniform-sample reconstruction outcome.
+ *   #tcr-family (2), #tcr-strategy (3), #tcr-key (4) — every option; plus
+ *                        fresh target-first and key-first games, an explicit
+ *                        no-answer forfeit, the spray refusal, a fresh sample,
+ *                        a retirement and an invalid sample budget.
  *
  * Controls skipped, with the reason: #cpa-run, #cca-run, #forgery-run,
- * #switch-run and #reduction-run are the action that produces each state above
- * rather than a state of their own, and the tab list's arrow keys move the same
- * selection its clicks do.
+ * #switch-run, #reduction-run, #tcr-play, #cr-play and #tcr-sample-run are the
+ * actions that produce each state above rather than states of their own, and
+ * the tab list's arrow keys move the same selection its clicks do.
  */
 async function driveEveryState(
   page: Page,
@@ -387,6 +391,71 @@ async function driveEveryState(
     timeout: 90_000,
   });
   await visit('exhibit 07, fresh reconstruction');
+
+  // ── exhibit 08 · target-first and key-first hash games ──────────────────
+  await openTab(page, 'Target collisions');
+  await visit('exhibit 08, default target-collision controls');
+  for (const family of await optionValues(page, '#tcr-family')) {
+    await page.locator('#tcr-family').selectOption(family);
+    await visit(`exhibit 08, family ${family}`);
+  }
+  await page.locator('#tcr-family').selectOption('planted-pair');
+  for (const strategy of await optionValues(page, '#tcr-strategy')) {
+    await page.locator('#tcr-strategy').selectOption(strategy);
+    await visit(`exhibit 08, strategy ${strategy}`);
+  }
+  await page.locator('#tcr-strategy').selectOption('plant-shift');
+  for (const key of await optionValues(page, '#tcr-key')) {
+    await page.locator('#tcr-key').selectOption(key);
+    await visit(`exhibit 08, key mode ${key}`);
+  }
+
+  await page.locator('#tcr-key').selectOption('00');
+  await page.locator('#tcr-play').click();
+  await expect(page.locator('#tcr-verdict')).toContainText('TARGET COLLISION');
+  await visit('exhibit 08, fresh target-first win');
+  await page.locator('#cr-play').click();
+  await expect(page.locator('#cr-verdict')).toContainText('COLLISION');
+  await visit('exhibit 08, fresh key-first win');
+
+  await page.locator('#tcr-key').selectOption('10');
+  await page.locator('#tcr-play').click();
+  await expect(page.locator('#tcr-transcript')).toContainText('forfeit (no partner)');
+  await expect(page.locator('#tcr-transcript')).toContainText('none submitted (forfeit)');
+  await visit('exhibit 08, explicit no-answer forfeit');
+
+  await page.locator('#tcr-key').selectOption('00');
+  await page.locator('#tcr-strategy').selectOption('spray-multi');
+  await page.locator('#tcr-play').click();
+  await expect(page.locator('#tcr-transcript')).toContainText('exactly one target');
+  await visit('exhibit 08, spray second-target refusal');
+
+  await page.locator('#tcr-strategy').selectOption('plant-shift');
+  await setNumber(page, '#tcr-trials', '64');
+  await page.locator('#tcr-sample-run').click();
+  await expect(page.locator('#tcr-status')).toContainText('Fresh sample');
+  await visit('exhibit 08, fresh bounded sample');
+  const sampleBeforeReplayChange = (await readClaim(page, 'tcr-sample')).text;
+  await page.locator('#tcr-key').selectOption('10');
+  expect((await readClaim(page, 'tcr-sample')).text).toBe(sampleBeforeReplayChange);
+  await expect(page.locator('#tcr-status')).toContainText('uniform-key sample is unchanged');
+  await visit('exhibit 08, replay fixture changed while the uniform-key sample remains visible');
+
+  await page.locator('#tcr-key').selectOption('00');
+  await page.locator('#tcr-play').click();
+  await page.locator('#cr-play').click();
+  await expect(page.locator('#tcr-verdict')).toContainText('TARGET COLLISION');
+  await expect(page.locator('#cr-verdict')).toContainText('COLLISION');
+  await setNumber(page, '#tcr-trials', '128');
+  await expect(page.locator('#tcr-status')).toContainText('retired');
+  await expect(page.locator('#tcr-sample')).toContainText('Sample retired');
+  await expect(page.locator('#tcr-verdict')).toContainText('TARGET COLLISION');
+  await expect(page.locator('#cr-verdict')).toContainText('COLLISION');
+  await visit('exhibit 08, sample retired by a budget change');
+  await setNumber(page, '#tcr-trials', '5');
+  await page.locator('#tcr-sample-run').click();
+  await expect(page.locator('#tcr-status')).toContainText('Trials must be an integer');
+  await visit('exhibit 08, sample budget outside the teaching range refused');
 }
 
 /**
@@ -1110,14 +1179,20 @@ test('target-collision verdict follows the machine outcome', async ({ page }) =>
   await page.locator('#tcr-key').selectOption('00');
   await page.locator('#tcr-play').click();
   await expectVerdict(page, 'tcr-game', { text: 'TARGET COLLISION', state: 'alarm' });
-  // Replayed key 0x10: 0xF0 ⊕ 0x10 = 0xE0, whose only partner under the planted
-  // family is itself — the scan finds nothing and the definition holds.
+  // Replayed key 0x10: 0xF0 ⊕ 0x10 = 0xE0, which is outside the planted
+  // pair. Plant-shift has no candidate and explicitly forfeits; that one loss
+  // is not evidence that the definition holds.
   await page.locator('#tcr-key').selectOption('10');
   await page.locator('#tcr-play').click();
   await expectVerdict(page, 'tcr-game', { text: 'NO TARGET COLLISION', state: 'pass' });
   const loss = page.locator('[data-verdict="tcr-game"]');
   await expect(loss).toContainText('selected adversary lost this trial');
   await expect(loss).not.toContainText('definition held');
+  const transcript = await readClaim(page, 'tcr-transcript');
+  expect(transcript.text).toContain('forfeit (no partner)');
+  expect(transcript.text).toContain('forfeited without a partner');
+  expect(claimField(transcript, 'Partner')).toBe('none submitted (forfeit)');
+  expect(transcript.text).not.toContain('submit partner none');
 });
 
 test('key-first collision verdict follows the machine outcome', async ({ page }) => {
@@ -1146,11 +1221,13 @@ test('target-first transcript claim shows every adjudicated move', async ({ page
   await page.locator('#tcr-play').click();
   let claim = await readClaim(page, 'tcr-transcript');
   expect(claimField(claim, 'Committed target')).toBe('0xF0');
-  expect(claimField(claim, 'Key drawn after')).toBe('0x00');
+  expect(claimField(claim, 'Key revealed after')).toBe('0x00');
   expect(claimField(claim, 'Partner')).toBe('0x0F');
   expect(claimField(claim, 'Target digest')).toBe(hexByte(plantedHash(0x00, 0xf0)));
   expect(claimField(claim, 'Partner digest')).toBe(hexByte(plantedHash(0x00, 0x0f)));
   expect(claim.text).toContain('committed before any key exists');
+  expect(claim.text).toContain('revealed after the commit');
+  expect(claim.text).not.toContain('drawn uniformly');
 
   // The spray strategy's second commit is refused on the tape, with the
   // single-target rule named — the order-of-play enforcement itself.

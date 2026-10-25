@@ -85,6 +85,12 @@ export async function boot(page: Page): Promise<void> {
   await expect(page.locator('a.cl-skip-link')).toHaveAttribute('href', '#app');
   await expect(page.locator('#app')).toHaveCount(1);
   await expect(page.locator('#theme-toggle, #themeToggle, .theme-toggle, [data-theme-toggle]')).toHaveCount(0);
+  const tabList = page.locator('.tab-list');
+  await expect(tabList.getByRole('tab')).toHaveCount(8);
+  const tabTracks = await tabList.evaluate((element) =>
+    getComputedStyle(element).gridTemplateColumns.split(/\s+/).filter(Boolean).length,
+  );
+  expect(tabTracks, 'the tab grid must allocate one track for each of the eight exhibits').toBe(8);
 }
 
 export async function scan(page: Page, label: string): Promise<void> {
@@ -209,6 +215,11 @@ export async function driveAllStates(page: Page, viewport: string): Promise<void
   await page.locator('#cr-play').click();
   await expect(page.locator('#cr-verdict')).toContainText('COLLISION');
   await scan(page, `${viewport} / target-collision machines, both orders replayed`);
+  await page.locator('#tcr-key').selectOption('10');
+  await page.locator('#tcr-play').click();
+  await expect(page.locator('#tcr-transcript')).toContainText('forfeit (no partner)');
+  await expect(page.locator('#tcr-transcript')).toContainText('forfeited without a partner');
+  await scan(page, `${viewport} / target-collision explicit no-answer forfeit`);
   await page.locator('#tcr-strategy').selectOption('spray-multi');
   await page.locator('#tcr-play').click();
   await expect(page.locator('#tcr-transcript')).toContainText('exactly one target');

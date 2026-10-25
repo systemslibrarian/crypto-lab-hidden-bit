@@ -27,7 +27,9 @@ interface TcrView {
   family: TcrFamilyId;
   strategy: TcrStrategyId;
   keyMode: string;
-  retired: boolean;
+  tcrRetired: boolean;
+  crRetired: boolean;
+  sampleRetired: boolean;
   tcr: TcrGameRecord | null;
   cr: CrGameRecord | null;
   sample: { order: 'target-before-key' | 'collision-after-key'; wins: number; trials: number }[] | null;
@@ -61,7 +63,7 @@ export function initTcr(): void {
   panel.innerHTML = `
     <div class="experiment-header">
       <div>
-        <p class="section-index">TARGET COLLISION RESISTANCE · ORDER OF PLAY · S09</p>
+        <p class="section-index">TARGET-FIRST HASH GAME · ORDER OF PLAY · S09</p>
         <h2>The same family, two orders of play</h2>
         <p>A keyed family H<sub>s</sub>(x) = h(x ⊕ s) is played as two different games. Target-first, the adversary commits x before the key exists; key-first, it sees s and then picks both inputs. The machines enforce each order and record every accepted or refused move that the selected strategy actually attempts.</p>
       </div>
@@ -99,7 +101,7 @@ export function initTcr(): void {
             <option value="10">Replay key 0x10</option>
             <option value="ff">Replay key 0xFF</option>
           </select>
-          <span class="field-hint">Replay keys make the game reproducible; 0x00 and 0xFF are the two keys that beat a 0xF0 target on the planted family.</span>
+          <span class="field-hint">Replay choices are deterministic transcript fixtures, not uniform trials. The UI fixes the replay key for reproducibility, but the scripted target-first adversary receives it only after committing its target. Keys 0x00 and 0xFF are the two fixtures that beat a 0xF0 target on the planted family.</span>
         </div>
       </div>
       <p id="tcr-status" class="retirement-note" role="status" aria-live="polite">Choose a family, a strategy and a key, then play each order once.</p>
@@ -196,7 +198,9 @@ export function initTcr(): void {
     family: 'planted-pair',
     strategy: 'plant-shift',
     keyMode: 'random',
-    retired: false,
+    tcrRetired: false,
+    crRetired: false,
+    sampleRetired: false,
     tcr: null,
     cr: null,
     sample: null,
@@ -213,18 +217,22 @@ export function initTcr(): void {
     return Number.parseInt(view.keyMode, 16);
   };
 
-  const retire = (message: string): void => {
+  const retireGames = (): void => {
     view.tcr = null;
     view.cr = null;
+    view.tcrRetired = true;
+    view.crRetired = true;
+  };
+
+  const retireSample = (): void => {
     view.sample = null;
-    view.retired = true;
-    status.textContent = message;
+    view.sampleRetired = true;
   };
 
   const renderGames = (): void => {
     const tcrBlock = query<HTMLElement>('#tcr-transcript', panel);
     const tcrVerdict = query<HTMLElement>('#tcr-verdict', panel);
-    if (view.retired) {
+    if (view.tcrRetired) {
       tcrBlock.innerHTML = '<h3>Machine transcript</h3><p>No game played yet.</p>';
       tcrVerdict.dataset.tone = 'neutral';
       tcrVerdict.innerHTML = '<div><strong>RESULT RETIRED</strong><p>The configuration moved; play the target-first game again under the new settings.</p></div>';
@@ -244,9 +252,9 @@ export function initTcr(): void {
         <h3>Machine transcript</h3>
         <dl class="value-list">
           <div class="value-row"><dt>Committed target</dt><dd>${hexByte(record.target)}</dd></div>
-          <div class="value-row"><dt>Key drawn after</dt><dd>${hexByte(record.key)}</dd></div>
+          <div class="value-row"><dt>Key revealed after</dt><dd>${hexByte(record.key)}</dd></div>
           <div class="value-row"><dt>Target digest</dt><dd>${hexByte(record.targetHash)}</dd></div>
-          <div class="value-row"><dt>Partner</dt><dd>${record.partner === null ? 'none found' : hexByte(record.partner)}</dd></div>
+          <div class="value-row"><dt>Partner</dt><dd>${record.partner === null ? 'none submitted (forfeit)' : hexByte(record.partner)}</dd></div>
           <div class="value-row"><dt>Partner digest</dt><dd>${record.partnerHash === null ? '—' : hexByte(record.partnerHash)}</dd></div>
         </dl>
         ${moves}`;
@@ -261,7 +269,7 @@ export function initTcr(): void {
 
     const crBlock = query<HTMLElement>('#cr-transcript', panel);
     const crVerdict = query<HTMLElement>('#cr-verdict', panel);
-    if (view.retired) {
+    if (view.crRetired) {
       crBlock.innerHTML = '<h3>Machine transcript</h3><p>No game played yet.</p>';
       crVerdict.dataset.tone = 'neutral';
       crVerdict.innerHTML = '<div><strong>RESULT RETIRED</strong><p>The configuration moved; play the key-first game again under the new settings.</p></div>';
@@ -315,6 +323,11 @@ export function initTcr(): void {
 
   const renderSample = (): void => {
     const sampleBlock = query<HTMLElement>('#tcr-sample', panel);
+    if (view.sampleRetired) {
+      sampleBlock.dataset.value = '';
+      sampleBlock.innerHTML = '<h3>Sampled games</h3><p>Sample retired: the family, strategy, or sample budget changed. Run a fresh uniform-key sample.</p>';
+      return;
+    }
     if (view.sample === null) {
       sampleBlock.dataset.value = '';
       sampleBlock.innerHTML = '<h3>Sampled games</h3><p>No sample run yet.</p>';
@@ -349,32 +362,38 @@ export function initTcr(): void {
 
   familySelect.addEventListener('change', () => {
     view.family = familySelect.value as TcrFamilyId;
-    retire('Family changed; previous games and samples retired. Play each order again.');
+    retireGames();
+    retireSample();
+    status.textContent = 'Family changed; both game transcripts and the uniform-key sample retired.';
     renderAll();
   });
   strategySelect.addEventListener('change', () => {
     view.strategy = strategySelect.value as TcrStrategyId;
-    retire('Strategy changed; previous games and samples retired. Play each order again.');
+    retireGames();
+    retireSample();
+    status.textContent = 'Strategy changed; both game transcripts and the uniform-key sample retired.';
     renderAll();
   });
   keySelect.addEventListener('change', () => {
     view.keyMode = keySelect.value;
-    retire('Key mode changed; previous games retired. Play each order again.');
+    retireGames();
+    status.textContent = 'Key fixture mode changed; only the game transcripts retired. The uniform-key sample is unchanged.';
     renderAll();
   });
   trialsInput.addEventListener('change', () => {
-    retire('Sample budget changed; previous samples retired. Sample both orders again.');
+    retireSample();
+    status.textContent = 'Sample budget changed; only the uniform-key sample retired. The game transcripts are unchanged.';
     renderAll();
   });
 
   query<HTMLButtonElement>('#tcr-play', panel).addEventListener('click', () => {
-    view.retired = false;
+    view.tcrRetired = false;
     view.tcr = playTcrGame(view.family, view.strategy, drawKey);
     status.textContent = 'Fresh target-first game played with the machine adjudicating every move.';
     renderGames();
   });
   query<HTMLButtonElement>('#cr-play', panel).addEventListener('click', () => {
-    view.retired = false;
+    view.crRetired = false;
     view.cr = playCrGame(view.family, view.strategy, drawKey);
     status.textContent = 'Fresh key-first game played with the machine adjudicating every move.';
     renderGames();
@@ -383,7 +402,7 @@ export function initTcr(): void {
   query<HTMLButtonElement>('#tcr-sample-run', panel).addEventListener('click', () => {
     try {
       const trials = Number(trialsInput.value);
-      view.retired = false;
+      view.sampleRetired = false;
       view.sample = [
         {
           order: 'target-before-key',
@@ -394,10 +413,11 @@ export function initTcr(): void {
           ...sampleGames(view.family, 'collision-after-key', view.strategy, trials, randomByte),
         },
       ];
-      status.textContent = `Fresh sample: ${trials} games per order with uniform keys. The exact numbers beside them are the complete counts.`;
+      status.textContent = `Fresh sample: ${trials} games per order with uniform keys. Replay-key fixtures do not affect this sample; the exact numbers beside it are the complete counts.`;
       renderSample();
     } catch (error) {
       view.sample = null;
+      view.sampleRetired = false;
       status.textContent = error instanceof Error ? error.message : 'Invalid sample budget.';
       renderSample();
     }

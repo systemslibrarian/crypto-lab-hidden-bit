@@ -169,7 +169,7 @@ body {
 }
 .tab-list {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(8, minmax(0, 1fr));
   overflow-x: auto;
   border: 1px solid var(--border);
   border-radius: 6px 6px 0 0;
@@ -518,7 +518,7 @@ td { color: var(--text-dim); }
   .scope-heading h2,
   .scope-heading > p:last-child { grid-column: 1; grid-row: auto; }
   .exhibit-nav { top: 62px; }
-  .tab-list { grid-template-columns: repeat(7, minmax(142px, 1fr)); }
+  .tab-list { grid-template-columns: repeat(8, minmax(142px, 1fr)); }
   .experiment-panel { min-height: 640px; padding: 1rem; }
   .control-deck { grid-template-columns: 1fr; }
   .proof-controls .button-row { justify-content: flex-start; }

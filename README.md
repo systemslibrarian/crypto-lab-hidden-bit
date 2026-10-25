@@ -2,11 +2,13 @@
 
 ## What It Is
 
-Hidden Bit is a browser lab for the experiments behind IND-CPA, IND-CCA2, EUF-CMA, strong unforgeability, the PRP/PRF switching lemma, adjacent-hybrid proofs, and hard-core predicates. It runs real AES-128 ECB/CBC/CTR/GCM, RSA-2048 textbook/OAEP/PSS, ristretto255 ElGamal, secp256k1 ECDSA, and Ed25519 operations, then measures each named adversary with the definition
+Hidden Bit is a browser lab for the experiments behind IND-CPA, IND-CCA2, EUF-CMA, strong unforgeability, the PRP/PRF switching lemma, adjacent-hybrid proofs, hard-core predicates, and target collision resistance. It runs real AES-128 ECB/CBC/CTR/GCM, RSA-2048 textbook/OAEP/PSS, ristretto255 ElGamal, secp256k1 ECDSA, and Ed25519 operations. Its hidden-bit guessing exhibits measure each named adversary with the normalized definition
 
 $$
 \operatorname{Adv}(A)=2\frac{\text{wins}}{\text{trials}}-1.
 $$
+
+The target-collision exhibit is a search game with no hidden coin, so it reports the adversary's raw win probability $p$, not the normalized guessing advantage $2p-1$.
 
 AES CBC/CTR/GCM and RSA OAEP/PSS use WebCrypto with SHA-256 where the RSA construction requires it. RSA keys are generated once as extractable JWK material, so the same $n$, $e$, and $d$ also drive the inspectable textbook-RSA arithmetic. ElGamal, ECDSA, Ed25519, and AES-ECB use the audited Noble packages; ristretto255's hash-to-group uses SHA-512. [`@noble/ciphers`](https://github.com/paulmillr/noble-ciphers) is used for ECB because WebCrypto deliberately does not expose that unauthenticated mode; the implementation is still checked against FIPS 197.
 
@@ -22,7 +24,7 @@ The switching game's ideal permutation and ideal function are faithfully lazy-sa
 6. **Multi-key rare-signal toy.** Choose independent user instances, queries per user, and a per-query tagged reveal chance. A shared challenge bit becomes known if any signal appears; otherwise the adversary guesses. Run a sample game and compare the exact toy advantage $1-(1-\epsilon)^Q$ with the union ceiling $\min(1,Q\epsilon)$ for total opportunities $Q$. This is an abstract game, not AES, an IND-CPA experiment, or a claim that every real multi-user bound scales by $Q$. If a single-key bound already accounts for queries, do not count them again.
 7. **Adjacent hybrids and a hard-core predicate.** Advance only from $H_i$ to $H_{i+1}$ while the ledger classifies exact rewrites, the symbolic AES-PRP assumption, and the switching bad event $q(q-1)/2^{129}$. Executable real-AES and lazy-oracle checks expose deterministic caching, clone safety, and forced-collision policy. Then inspect the conditional counterexample $F(x,r)=(f(x),r)$, where the input predicate $r_0$ is public, and run a bounded Goldreich–Levin reconstruction for $\langle x,r\rangle \bmod 2$. The decoder receives only the public image, access to an artificial biased-predictor oracle, and an independent preimage verifier; it never receives $x$.
 
-8. **Target collisions and the order of play (S09).** One small keyed family, $H_s(x) = h(x \oplus s)$, is played as two state machines. Target-first, the adversary commits $x$ before the key exists and the machine refuses a second target, a target after the key, and a partner equal to $x$; key-first, the key is published before any input is chosen and choosing early is refused. The planted family ($h$ = identity except one colliding pair at $\{0x0F, 0xF0\}$) separates the orders by exhaustive count: the plant-shift strategy wins every key-first game and only 2 of 256 target-first games, whatever it commits. The nibble-fold family ($h(u) = u \& 0x0F$) is the negative control — fifteen partners everywhere, both orders fall. A signed (key, digest) pair panel explains why hash-then-sign with a committed message makes the forger face exactly the target-collision order, and every displayed chance is an exact count over the whole key space, with a bounded sampler bracketed by Wilson intervals.
+8. **Target collisions and the order of play (S09).** One small keyed family, $H_s(x) = h(x \oplus s)$, is played as two state machines. Target-first, the adversary commits $x$ before the key exists and the machine refuses a second target, a target after the key, and a partner equal to $x$; key-first, the key is published before any input is chosen and choosing early is refused. The planted family ($h$ = identity except one colliding pair at $\{0x0F, 0xF0\}$) separates the orders by exhaustive count: with its fixed $0xF0$ target, plant-shift wins every key-first game and only 2 of 256 target-first games. Mask symmetry separately shows that the family-level target winnability is 2 of 256 keys for every fixed target. The nibble-fold control has fifteen partners everywhere, so the exhaustive scan wins both orders; the direct planted-pair strategies lose both, keeping selected-strategy outcomes separate from family winnability. A signed (key, digest) pair panel explains why hash-then-sign with a committed message makes the forger face exactly the target-collision order, and every exact-analysis chance is a complete count over the key space, with a separate bounded sampler bracketed by Wilson intervals.
 
 The chained-IV CBC fixture is the lab's negative claim: random guessing and re-encryption can both flatten while all three KATs pass, yet the BEAST-style IV predictor still reaches advantage one. A near-zero measurement means those adversaries failed; it is not evidence of IND-CPA security.
 
@@ -110,9 +112,9 @@ npm run test:a11y
 npm run test:mutations
 ```
 
-The unit gate contains **117 tests** in 17 files. It includes **3 published known-answer cases**: FIPS 197 AES-128, RFC 6979 P-256 ECDSA, and RFC 8032 Ed25519. Coverage is measured over the cryptographic and game logic only — `src/game/`, `src/schemes/`, `src/adversaries/`, `src/prf/`, `src/proofs/`, `src/reduction/` and `src/kats.ts` — because that is the code whose correctness the claims rest on; the presentation layer (`src/ui/`, `src/main.ts`) is excluded from the measurement and is covered instead by the browser tests below. Over that scope the enforced baseline is 90% statements, 80% branches, 90% functions, and 90% lines; the latest local unit run measured 95.04%, 88.86%, 94.70%, and 97.19%, respectively.
+The unit gate contains **148 tests** in 18 files. It includes **3 published known-answer cases**: FIPS 197 AES-128, RFC 6979 P-256 ECDSA, and RFC 8032 Ed25519. Coverage is measured over the cryptographic and game logic only — `src/game/`, `src/schemes/`, `src/adversaries/`, `src/prf/`, `src/proofs/`, `src/reduction/` and `src/kats.ts` — because that is the code whose correctness the claims rest on; the presentation layer (`src/ui/`, `src/main.ts`) is excluded from the measurement and is covered instead by the browser tests below. Over that scope the enforced baseline is 90% statements, 80% branches, 90% functions, and 90% lines; the latest local unit run measured 95.07%, 88.05%, 95.78%, and 97.13%, respectively.
 
-The Playwright gate contains **42 browser tests** in 3 files: 13 truth and workflow claims (`e2e/claims.spec.ts`), including independent raw-RSA modular exponentiation, secp256k1 point arithmetic, AES-ECB, SHA-256 and proof-parameter recomputation; 27 marker-coverage and marker-branching tests (`e2e/verdicts.spec.ts`); and 2 WCAG state walks (`e2e/a11y.spec.ts`). It builds before serving, drives real controls at desktop and 380 px, requires zero WCAG 2.1 A/AA violations, inspects axe's incomplete bucket, and independently checks text contrast, control-boundary contrast, reduced motion, reflow, focus targets, scroll regions, and hidden states.
+The Playwright gate contains **51 browser tests** in 3 files: 16 truth and workflow claims (`e2e/claims.spec.ts`), including independent raw-RSA modular exponentiation, secp256k1 point arithmetic, AES-ECB, SHA-256, proof-parameter recomputation and target-collision arithmetic; 33 marker-coverage and marker-branching tests (`e2e/verdicts.spec.ts`); and 2 WCAG state walks (`e2e/a11y.spec.ts`). It builds before serving, drives real controls at desktop and 380 px, requires zero WCAG 2.1 A/AA violations, inspects axe's incomplete bucket, and independently checks text contrast, control-boundary contrast, reduced motion, reflow, focus targets, scroll regions, and hidden states.
 
 ### Every rendered verdict and every rendered number is mutation-covered
 
@@ -186,12 +188,14 @@ exhibits, because a list is a self-report:
   its own, not the cross-product. Seven CPA schemes, three adversaries, five
   signature tactics, both CCA2 schemes, both reduction adversaries, both ends of
   n, the step and stop buttons, every refusal and every retirement, every
-  adjacent hybrid prefix, executable oracle checks and a fresh reconstruction. A state the
-  walk never reaches is outside the set the coverage rules judge, however
-  carefully those rules are written;
-- `npm run test:mutations` applies **35 recorded mutations across the 34
-  markers** — `switch-rows` carries two, because a doubled bound and a
-  replicated row are different defects — and requires a **kill** for each: the
+  adjacent hybrid prefix, executable oracle checks, a fresh reconstruction,
+  both target-collision families, all three target-collision strategies, all
+  four key modes, both order games, the explicit no-answer forfeit, the spray
+  refusal, and fresh, retired and invalid sample states. A state the walk never
+  reaches is outside the set the coverage rules judge, however carefully those
+  rules are written;
+- `npm run test:mutations` applies **52 recorded mutations across 44 markers**
+  and requires a **kill** for each: the
   unmutated baseline passing in the same run, and the failure being that
   marker's own assertion rather than a build error, a blank page, a timeout, or
   the whole suite going red.

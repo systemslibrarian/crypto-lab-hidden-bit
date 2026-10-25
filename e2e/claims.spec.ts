@@ -523,8 +523,20 @@ test('all vulnerable choices are labelled and never selected by default', async 
 
 test('target-collision definitions distinguish the three notions and the signed pair', async ({ page }) => {
   await boot(page);
+  const intro = ((await page.locator('.plain-intro').textContent()) ?? '').replace(/\s+/g, ' ').trim();
+  expect(intro).toContain("In this lab's guessing-game exhibits");
+  expect(intro).toContain('normalized guessing advantage, 2p − 1');
+  expect(intro).toContain('target-collision exhibit is instead a search game with no hidden coin');
+  expect(intro).toContain("raw win probability p");
+  expect(intro).not.toContain('A challenger hides one random bit inside a cryptographic task');
+  const scope = ((await page.locator('.scope-columns').textContent()) ?? '').replace(/\s+/g, ' ').trim();
+  expect(scope).toContain('In the hidden-bit guessing exhibits, the challenger bit always comes from');
+  expect(scope).toContain('the target-collision search game has no challenger bit');
   await openTab(page, 'Target collisions');
   const panel = page.locator('#panel-tcr');
+  const keyBoundary = ((await panel.locator('#tcr-key ~ .field-hint').textContent()) ?? '').replace(/\s+/g, ' ').trim();
+  expect(keyBoundary).toContain('deterministic transcript fixtures, not uniform trials');
+  expect(keyBoundary).toContain('scripted target-first adversary receives it only after committing its target');
   // The three notions, each with its own order of play and target supplier.
   const definitions = await readClaim(page, 'tcr-definitions');
   for (const notion of ['Collision resistance', 'Second preimage', 'Target collision']) {
@@ -579,10 +591,41 @@ test('target-collision results retire when the configuration moves', async ({ pa
   await page.locator('#cr-play').click();
   await expectVerdict(page, 'cr-game', { text: 'COLLISION', state: 'alarm' });
 
+  await page.locator('#tcr-trials').fill('64');
+  await page.locator('#tcr-trials').blur();
+  await page.locator('#tcr-sample-run').click();
+  const freshSample = await readClaim(page, 'tcr-sample');
+  expect(freshSample.text).toContain('Target-first wins');
+
+  // A replay fixture controls only the two single-game transcripts. The
+  // sample draws fresh uniform keys internally and must remain visible.
+  await page.locator('#tcr-key').selectOption('10');
+  await expectVerdict(page, 'tcr-game', { text: 'RESULT RETIRED', state: 'neutral' });
+  await expectVerdict(page, 'cr-game', { text: 'RESULT RETIRED', state: 'neutral' });
+  expect((await readClaim(page, 'tcr-sample')).text).toBe(freshSample.text);
+  await expect(page.locator('#tcr-status')).toContainText('uniform-key sample is unchanged');
+
+  // Conversely, changing only the sample budget preserves both replayed
+  // machine transcripts and their verdicts.
+  await page.locator('#tcr-key').selectOption('00');
+  await page.locator('#tcr-play').click();
+  await page.locator('#cr-play').click();
+  const targetTranscript = (await readClaim(page, 'tcr-transcript')).text;
+  const collisionTranscript = (await readClaim(page, 'cr-transcript')).text;
+  await page.locator('#tcr-trials').fill('128');
+  await page.locator('#tcr-trials').blur();
+  await expect(page.locator('#tcr-sample')).toContainText('Sample retired');
+  await expectVerdict(page, 'tcr-game', { text: 'TARGET COLLISION', state: 'alarm' });
+  await expectVerdict(page, 'cr-game', { text: 'COLLISION', state: 'alarm' });
+  expect((await readClaim(page, 'tcr-transcript')).text).toBe(targetTranscript);
+  expect((await readClaim(page, 'cr-transcript')).text).toBe(collisionTranscript);
+  await expect(page.locator('#tcr-status')).toContainText('game transcripts are unchanged');
+
   await page.locator('#tcr-family').selectOption('nibble-fold');
   await expect(page.locator('#tcr-status')).toContainText('retired');
   await expectVerdict(page, 'tcr-game', { text: 'RESULT RETIRED', state: 'neutral' });
   await expectVerdict(page, 'cr-game', { text: 'RESULT RETIRED', state: 'neutral' });
+  await expect(page.locator('#tcr-sample')).toContainText('Sample retired');
 
   // A fresh run under the new settings clears the retirement. The fold
   // family's key-first game is won by the structure-blind scan, not by

@@ -8,9 +8,10 @@
  *   planted-pair — h is the identity on {0,1}^8 except h(0xF0) = 0x0F, so the
  *     family has exactly one colliding inner pair {0x0F, 0xF0}, at a KNOWN
  *     location. Collision resistance is broken outright: an adversary that
- *     sees the key first shifts the planted pair past the input mask. Target
- *     collision resistance survives: a target committed before the key lands
- *     on the planted pair for exactly 2 of the 256 keys, whatever the target.
+ *     sees the key first shifts the planted pair past the input mask. In the
+ *     target-first game, every fixed target lands on the planted pair
+ *     for exactly 2 of the 256 keys. That is a complete fact about this fixed
+ *     toy, not a target-collision-resistance conclusion.
  *
  *   nibble-fold — h(u) = u & 0x0F. Every input has fifteen partners, so an
  *     exhaustive scan wins in both orders. The direct planted-pair strategy
@@ -144,7 +145,7 @@ export function tcrDrawKey(state: TcrState, key: number): MoveOutcome {
   if (state.phase !== 'awaiting-key') {
     return { accepted: false, reason: 'Refused: draw the key only after a target is committed.' };
   }
-  return { accepted: true, reason: `Key 0x${key.toString(16).padStart(2, '0')} drawn uniformly after the commit.` };
+  return { accepted: true, reason: `Key 0x${key.toString(16).padStart(2, '0')} revealed after the commit.` };
 }
 
 export function tcrApplyKey(state: TcrState, key: number): TcrState {
@@ -164,6 +165,25 @@ export function tcrSubmitPartner(state: TcrState, x2: number): MoveOutcome {
 
 export function tcrApplyPartner(state: TcrState, x2: number): TcrState {
   return { ...state, partner: x2, phase: 'resolved' };
+}
+
+/**
+ * Ending without a partner is an explicit, legal loss after the key draw. It
+ * is not a rejected partner submission: no x-prime was supplied for the
+ * machine to validate.
+ */
+export function tcrForfeit(state: TcrState): MoveOutcome {
+  if (state.phase !== 'awaiting-partner') {
+    return { accepted: false, reason: 'Refused: a no-answer forfeit is available only when a partner is due.' };
+  }
+  return {
+    accepted: true,
+    reason: 'Accepted: the adversary forfeited without a partner, so this trial terminates as a loss.',
+  };
+}
+
+export function tcrApplyForfeit(state: TcrState): TcrState {
+  return { ...state, partner: null, phase: 'resolved' };
 }
 
 export function tcrWon(state: TcrState): boolean {
@@ -331,16 +351,14 @@ export function playTcrGame(
   };
   const submit = (x2: number | null): void => {
     if (x2 === null) {
+      const outcome = tcrForfeit(state);
       transcript.push({
-        move: 'submit partner',
+        move: 'forfeit (no partner)',
         value: null,
-        accepted: false,
-        reason:
-          strategy === 'scan-pairs'
-            ? 'The exhaustive scan of all 255 other inputs found no equal hash under this key.'
-            : 'The selected planted candidate set produced no partner for this target and key.',
+        accepted: outcome.accepted,
+        reason: outcome.reason,
       });
-      state = { ...state, partner: null, phase: 'resolved' };
+      if (outcome.accepted) state = tcrApplyForfeit(state);
       return;
     }
     const outcome = tcrSubmitPartner(state, x2);
@@ -386,7 +404,7 @@ export function playTcrGame(
     partner: state.partner,
     targetHash,
     partnerHash,
-    won: state.partner !== null && partnerHash === targetHash,
+    won: tcrWon(state),
   };
 }
 

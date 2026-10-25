@@ -479,12 +479,11 @@
     "family": "verdict",
     "asserts": [ { "text": "TARGET COLLISION", "state": "alarm" }, { "text": "NO TARGET COLLISION", "state": "pass" } ],
     "file": "src/game/tcr.ts",
-    "find": "    won: state.partner !== null && partnerHash === targetHash,",
-    "replace": "    won: state.partner !== null && partnerHash !== targetHash,",
+    "find": "  return familyHash(state.family, state.key, state.partner) === familyHash(state.family, state.key, state.target);",
+    "replace": "  return familyHash(state.family, state.key, state.partner) !== familyHash(state.family, state.key, state.target);",
     "spec": "e2e/verdicts.spec.ts",
     "grep": "target-collision verdict follows the machine outcome",
-    "why": "Inverts the target-before-key win condition, so the replayed key-0x00 game that collides reports NO TARGET COLLISION and the key-0x10 game that found no partner reports a win. Both pinned verdict pairs fail inside the marker's own test.",
-    "scope": "Also reddens the transcript claim test, which recomputes the outcome from the displayed hashes; the kill is recorded from this marker's own test via --grep."
+    "why": "Inverts the target-before-key equality check, so the replayed key-0x00 collision reports NO TARGET COLLISION. The learner result calls this same machine predicate, and the pinned verdict fails inside the marker's own test."
   },
   {
     "id": "tcr-loss-claims-the-definition-held",
@@ -497,6 +496,18 @@
     "spec": "e2e/verdicts.spec.ts",
     "grep": "target-collision verdict follows the machine outcome",
     "why": "Restores the invalid inference from one adversary's one loss to security of the definition; the owning verdict test rejects that overclaim."
+  },
+  {
+    "id": "tcr-forfeit-counted-as-win",
+    "marker": "tcr-game",
+    "family": "verdict",
+    "asserts": [ { "text": "TARGET COLLISION", "state": "alarm" }, { "text": "NO TARGET COLLISION", "state": "pass" } ],
+    "file": "src/game/tcr.ts",
+    "find": "  if (state.partner === null) return false;",
+    "replace": "  if (state.partner === null) return true;",
+    "spec": "e2e/verdicts.spec.ts",
+    "grep": "target-collision verdict follows the machine outcome",
+    "why": "Turns the explicit no-answer terminal action into a win even though no partner exists. The learner result derives from the shared machine predicate, so the owning test's forfeit branch must change from NO TARGET COLLISION and the pinned verdict fails."
   },
   {
     "id": "cr-shift-dropped",
