@@ -174,7 +174,7 @@ export async function driveAllStates(page: Page, viewport: string): Promise<void
   await scan(page, `${viewport} / live DDH wrapper`);
 
   await page.locator('.definition-table > summary').click();
-  await page.locator('.sources > summary').click();
+  await page.locator('#app > .sources > summary').click();
   await page.locator('#reduction-run').focus();
   await scan(page, `${viewport} / disclosures open and action focused`);
   await openTab(page, 'Multi-key toy');
