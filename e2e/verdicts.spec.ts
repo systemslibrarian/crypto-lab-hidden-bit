@@ -172,7 +172,7 @@ async function optionValues(page: Page, selector: string): Promise<string[]> {
  *
  * Controls enumerated, by exhibit:
  *
- *   tab list (5)       — each tab renders a different panel.
+ *   tab list (7)       — each tab renders a different panel.
  *   #cpa-scheme (7)    — every option, read from the DOM.
  *   #cpa-adversary (3) — every option, walked on chained-IV CBC, the one scheme
  *                        that offers all three.
@@ -189,6 +189,12 @@ async function optionValues(page: Page, selector: string): Promise<string[]> {
  *                        retirement.
  *   #reduction-adversary (2) — every option; plus the odd-trials refusal and a
  *                        retirement.
+ *   #multi-users, #multi-queries, #multi-chance — default, sampled, saturated
+ *                        and invalid bounded-toy states.
+ *   #hybrid-queries, #hybrid-next, #hybrid-reset — valid and refused q, every
+ *                        adjacent H0-to-H5 prefix and a reset.
+ *   #hybrid-oracle-run, #hardcore-run — fresh executable cache checks and one
+ *                        uniform-sample reconstruction outcome.
  *
  * Controls skipped, with the reason: #cpa-run, #cca-run, #forgery-run,
  * #switch-run and #reduction-run are the action that produces each state above
@@ -355,6 +361,32 @@ async function driveEveryState(
   await visit('exhibit 06, saturated ceiling');
   await setNumber(page, '#multi-users', '0');
   await visit('exhibit 06, invalid user count');
+
+  // ── exhibit 07 · adjacent hybrids and hard-core reconstruction ───────────
+  await openTab(page, 'Hybrid proof');
+  await expect(page.locator('#hardcore-run')).toBeEnabled();
+  await visit('exhibit 07, H0 and bounded predicate fixture');
+  for (let hop = 1; hop <= 5; hop += 1) {
+    await page.locator('#hybrid-next').click();
+    await expect(page.locator('#hybrid-ledger [data-field="hybrid-through"]')).toHaveText(`H${hop}`);
+    await visit(`exhibit 07, adjacent prefix through H${hop}`);
+  }
+  await page.locator('#hybrid-reset').click();
+  await expect(page.locator('#hybrid-ledger [data-field="hybrid-through"]')).toHaveText('H0');
+  await visit('exhibit 07, reset to H0');
+  await setNumber(page, '#hybrid-queries', '1');
+  await expect(page.locator('#hybrid-proof-verdict')).toContainText('INPUT REFUSED');
+  await visit('exhibit 07, q below the UI range refused');
+  await setNumber(page, '#hybrid-queries', '48');
+  await visit('exhibit 07, valid q restores H0');
+  await page.locator('#hybrid-oracle-run').click();
+  await expect(page.locator('#hybrid-oracles [data-field="oracle-summary"]')).toContainText('All three oracles');
+  await visit('exhibit 07, fresh real and ideal oracle checks');
+  await page.locator('#hardcore-run').click();
+  await expect(page.locator('#hardcore-status')).toContainText('Fresh uniform reconstruction run', {
+    timeout: 90_000,
+  });
+  await visit('exhibit 07, fresh reconstruction');
 }
 
 /**
@@ -538,7 +570,9 @@ test('the coverage check catches a raw unmarked banner and a raw unmarked number
 
     const worded = document.createElement('div');
     worded.id = 'careless-worded-banner';
-    worded.innerHTML = '<strong>FORGED: the verifier accepted it</strong>';
+    // Use one of Exhibit 07's dynamic headlines so this self-test proves the
+    // newly extended vocabulary cannot silently fall out of audit coverage.
+    worded.innerHTML = '<strong>VERIFIED PREIMAGE FOUND</strong>';
     document.querySelector('main')!.append(worded);
 
     const counted = document.createElement('div');

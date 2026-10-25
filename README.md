@@ -2,7 +2,7 @@
 
 ## What It Is
 
-Hidden Bit is a browser lab for the experiments behind IND-CPA, IND-CCA2, EUF-CMA, strong unforgeability, and the PRP/PRF switching lemma. It runs real AES-128 ECB/CBC/CTR/GCM, RSA-2048 textbook/OAEP/PSS, ristretto255 ElGamal, secp256k1 ECDSA, and Ed25519 operations, then measures each named adversary with the definition
+Hidden Bit is a browser lab for the experiments behind IND-CPA, IND-CCA2, EUF-CMA, strong unforgeability, the PRP/PRF switching lemma, adjacent-hybrid proofs, and hard-core predicates. It runs real AES-128 ECB/CBC/CTR/GCM, RSA-2048 textbook/OAEP/PSS, ristretto255 ElGamal, secp256k1 ECDSA, and Ed25519 operations, then measures each named adversary with the definition
 
 $$
 \operatorname{Adv}(A)=2\frac{\text{wins}}{\text{trials}}-1.
@@ -10,7 +10,7 @@ $$
 
 AES CBC/CTR/GCM and RSA OAEP/PSS use WebCrypto with SHA-256 where the RSA construction requires it. RSA keys are generated once as extractable JWK material, so the same $n$, $e$, and $d$ also drive the inspectable textbook-RSA arithmetic. ElGamal, ECDSA, Ed25519, and AES-ECB use the audited Noble packages; ristretto255's hash-to-group uses SHA-512. [`@noble/ciphers`](https://github.com/paulmillr/noble-ciphers) is used for ECB because WebCrypto deliberately does not expose that unauthenticated mode; the implementation is still checked against FIPS 197.
 
-The switching game's ideal permutation and ideal function are faithfully lazy-sampled mathematical oracles. Its GGM tree uses real AES block evaluations and a deliberately insecure comparison generator; it is a construction lesson, not a sampled security game. This is not production crypto: keys live only in browser memory, deliberately vulnerable choices are teaching fixtures, trial counts are finite, and the interface exposes values a production system would hide.
+The switching game's ideal permutation and ideal function are faithfully lazy-sampled mathematical oracles. Its GGM tree uses real AES block evaluations and a deliberately insecure comparison generator; it is a construction lesson, not a sampled security game. A separate proof lesson walks five adjacent AES hybrids, contrasts an exposed input predicate with the Goldreich–Levin inner product, and runs a bounded Rackoff-style reconstruction whose candidates are independently rehashed. This is not production crypto: keys live only in browser memory, deliberately vulnerable choices are teaching fixtures, trial counts are finite, and the interface exposes values a production system would hide.
 
 ## Exhibits
 
@@ -20,14 +20,15 @@ The switching game's ideal permutation and ideal function are faithfully lazy-sa
 4. **PRP/PRF switching game and GGM tree.** Lazily sample an ideal $n$-bit permutation or function for selectable $8 \le n \le 20$. A collision-finding adversary is measured across growing $q$ and plotted against $q(q-1)/2^{n+1}$, with the expression also shown at $n=128$. Below the game, click paths in a three-level Goldreich–Goldwasser–Micali tree: $G(s)=\mathrm{AES}_s(0^{128})\parallel\mathrm{AES}_s(0^{127}1)$ produces two 128-bit child seeds; $G(s)=s\parallel s$ repeats every state and leaf bit. Selecting a path shows the full leaf state and its first bit; drawing a fresh seed updates both trees.
 5. **Live reduction.** Wrap either public-oracle IND-CPA adversary inside a DDH distinguisher. The page measures both sides and checks the convention $\operatorname{Adv}(B)=\operatorname{Adv}(A)/2$ within a displayed combined sampling interval.
 6. **Multi-key rare-signal toy.** Choose independent user instances, queries per user, and a per-query tagged reveal chance. A shared challenge bit becomes known if any signal appears; otherwise the adversary guesses. Run a sample game and compare the exact toy advantage $1-(1-\epsilon)^Q$ with the union ceiling $\min(1,Q\epsilon)$ for total opportunities $Q$. This is an abstract game, not AES, an IND-CPA experiment, or a claim that every real multi-user bound scales by $Q$. If a single-key bound already accounts for queries, do not count them again.
+7. **Adjacent hybrids and a hard-core predicate.** Advance only from $H_i$ to $H_{i+1}$ while the ledger classifies exact rewrites, the symbolic AES-PRP assumption, and the switching bad event $q(q-1)/2^{129}$. Executable real-AES and lazy-oracle checks expose deterministic caching, clone safety, and forced-collision policy. Then inspect the conditional counterexample $F(x,r)=(f(x),r)$, where the input predicate $r_0$ is public, and run a bounded Goldreich–Levin reconstruction for $\langle x,r\rangle \bmod 2$. The decoder receives only the public image, access to an artificial biased-predictor oracle, and an independent preimage verifier; it never receives $x$.
 
 The chained-IV CBC fixture is the lab's negative claim: random guessing and re-encryption can both flatten while all three KATs pass, yet the BEAST-style IV predictor still reaches advantage one. A near-zero measurement means those adversaries failed; it is not evidence of IND-CPA security.
 
 ## When to Use It
 
-Use this lab to learn how game-based definitions constrain an oracle, how an advantage estimate is assembled, how a chosen-ciphertext or chosen-message attack crosses a definition boundary, and what a reduction actually does with an adversary.
+Use this lab to learn how game-based definitions constrain an oracle, how an advantage estimate is assembled, how a chosen-ciphertext or chosen-message attack crosses a definition boundary, what a reduction actually does with an adversary, and why a proof must account for every adjacent game change.
 
-Do not use it to assess TLS, Signal, a deployed key-management system, or a protocol implementation. Do not treat a flat histogram as a proof. The lab covers neither proof assistants nor symbolic analysis, CCA1, NM-CPA, arbitrary visitor-authored adversaries, nor KEM definitions.
+Do not use it to assess TLS, Signal, a deployed key-management system, or a protocol implementation. Do not treat a flat histogram, a small-domain reconstruction, or one successful random run as a proof. The lab covers neither proof assistants nor symbolic analysis, CCA1, NM-CPA, arbitrary visitor-authored adversaries, nor KEM definitions.
 
 ## Live Demo
 
@@ -45,6 +46,9 @@ Everything runs locally in the browser. No key, message, trial result, or teleme
 - **Finite samples fluctuate.** Every advantage estimate carries a Wilson 95% interval; the switching chart uses a separately displayed conservative alarm tolerance.
 - **Single-key claims need their own multi-key analysis.** The toy's $Q\epsilon$ ceiling is a union bound on its independent, publicly marked rare events. Real security definitions and reductions may have different resource accounting and tighter bounds. See Bellare, Boldyreva and Micali, [*Public-Key Encryption in a Multi-User Setting*](https://cseweb.ucsd.edu/~mihir/papers/musu.pdf), and Bose, Hoang and Tessaro, [*Revisiting AES-GCM-SIV: Multi-user Security, Faster Key Derivation, and Better Bounds*](https://eprint.iacr.org/2018/136).
 - **A broken generator defeats the tree construction.** With $G(s)=s\parallel s$, all input paths have the same leaf state and bit. The AES-based generator is a length-doubling PRG candidate under the AES-128 PRP assumption; its one sample of distinct-looking branches is not a security proof.
+- **Endpoint comparisons can hide an unjustified proof step.** The guided ledger permits only the canonical $H_0$-through-$H_5$ prefix and keeps the AES-PRP term symbolic. The displayed switching contribution counts distinct inputs and uses the 128-bit bound $q(q-1)/2^{129}$.
+- **One-wayness does not hide every input predicate.** Conditional on $f$ being one-way, $(f(x),r)$ remains one-way as a function of $(x,r)$, but the input predicate $r_0$ is copied into its output. The eight-bit SHA-256 fixture is exhaustible, so it is not evidence that the fixture is one-way.
+- **The reconstruction begins with a predictor premise.** The artificial predictor is stipulated for one fixed $x$, ignores $y$, and is wrong only at the all-zero $r$. Its bias is exhaustively audited; it is not learned, not a SHA-256 attack, and not evidence that a useful predictor exists. Goldreich–Levin concerns a one-way-function family indexed by a security parameter and a probabilistic polynomial-time predictor with non-negligible advantage, none of which an eight-bit run establishes.
 
 ### GGM sources and limits
 
@@ -52,6 +56,15 @@ Everything runs locally in the browser. No key, message, trial result, or teleme
 - Katz and Lindell, [_Introduction to Modern Cryptography_, revised third edition](https://www.routledge.com/Introduction-to-Modern-Cryptography-Revised-Third-Edition/Katz-Lindell/p/book/9781032496795), 2025, §8.5.
 
 The formal construction consumes one input bit per tree level; for a 128-bit input it needs 128 levels, whereas this page displays only three. Truncating a secure pseudorandom function's 128-bit output to its first bit preserves the computational indistinguishability property. The example's root is displayed, so visitors can compute every leaf; it does not demonstrate secret-key security. The AES primitive and theorem assumption do not make the deliberately repeated-seed branch secure.
+
+### Hybrid and hard-core sources and limits
+
+- Oded Goldreich and Leonid Levin, [_A Hard-Core Predicate for all One-Way Functions_](https://www.wisdom.weizmann.ac.il/~/oded/gl.html), STOC 1989.
+- Oded Goldreich, [_Modern Cryptography, Probabilistic Proofs and Pseudorandomness_](https://www.wisdom.weizmann.ac.il/~oded/PDF/mcppp-v2.pdf), Appendix C.2.
+- Mihir Bellare and Phillip Rogaway, [_The Security of Triple Encryption and a Framework for Code-Based Game-Playing Proofs_](https://eprint.iacr.org/2004/331), and Victor Shoup, [_Sequences of Games_](https://eprint.iacr.org/2004/332).
+- Mike Rosulek, [_The Joy of Cryptography_, adjacent hybrids and the three-hop maneuver](https://joyofcryptography.com/provsec/#sec.three-hop).
+
+The browser fixes $n=8$, caps the sample family and reconstruction work, and uses fresh uniform WebCrypto bits. The bounded decoder enumerates every $\sigma$ guess, takes coordinate-wise majorities, deduplicates the list, and verifies candidates by recomputing the public image. It may honestly miss; the page makes at most one fresh retry and reports both attempts and total predictor queries. Those caps and the retry are teaching controls, not theorem parameters or a claim about asymptotic success.
 
 ## Real-World Usage
 
@@ -85,9 +98,9 @@ npm run test:a11y
 npm run test:mutations
 ```
 
-The unit gate contains **90 tests** in 13 files. It includes **3 published known-answer cases**: FIPS 197 AES-128, RFC 6979 P-256 ECDSA, and RFC 8032 Ed25519. Coverage is measured over the cryptographic and game logic only — `src/game/`, `src/schemes/`, `src/adversaries/`, `src/prf/`, `src/reduction/` and `src/kats.ts` — because that is the code whose correctness the claims rest on; the presentation layer (`src/ui/`, `src/main.ts`) is excluded from the measurement and is covered instead by the browser tests below. Over that scope the enforced baseline is 90% statements, 80% branches, 90% functions, and 90% lines; the latest local unit run measured 93.77%, 84.9%, 93.1%, and 96.6%, respectively.
+The unit gate contains **117 tests** in 17 files. It includes **3 published known-answer cases**: FIPS 197 AES-128, RFC 6979 P-256 ECDSA, and RFC 8032 Ed25519. Coverage is measured over the cryptographic and game logic only — `src/game/`, `src/schemes/`, `src/adversaries/`, `src/prf/`, `src/proofs/`, `src/reduction/` and `src/kats.ts` — because that is the code whose correctness the claims rest on; the presentation layer (`src/ui/`, `src/main.ts`) is excluded from the measurement and is covered instead by the browser tests below. Over that scope the enforced baseline is 90% statements, 80% branches, 90% functions, and 90% lines; the latest local unit run measured 95.04%, 88.86%, 94.70%, and 97.19%, respectively.
 
-The Playwright gate contains **39 browser tests** in 3 files: 11 truth and workflow claims (`e2e/claims.spec.ts`), including independent raw-RSA modular exponentiation and secp256k1 point arithmetic; 26 marker-coverage and marker-branching tests (`e2e/verdicts.spec.ts`); and 2 WCAG state walks (`e2e/a11y.spec.ts`). It builds before serving, drives real controls at desktop and 380 px, requires zero WCAG 2.1 A/AA violations, inspects axe's incomplete bucket, and independently checks text contrast, control-boundary contrast, reduced motion, reflow, focus targets, scroll regions, and hidden states.
+The Playwright gate contains **42 browser tests** in 3 files: 13 truth and workflow claims (`e2e/claims.spec.ts`), including independent raw-RSA modular exponentiation, secp256k1 point arithmetic, AES-ECB, SHA-256 and proof-parameter recomputation; 27 marker-coverage and marker-branching tests (`e2e/verdicts.spec.ts`); and 2 WCAG state walks (`e2e/a11y.spec.ts`). It builds before serving, drives real controls at desktop and 380 px, requires zero WCAG 2.1 A/AA violations, inspects axe's incomplete bucket, and independently checks text contrast, control-boundary contrast, reduced motion, reflow, focus targets, scroll regions, and hidden states.
 
 ### Every rendered verdict and every rendered number is mutation-covered
 
@@ -160,10 +173,11 @@ exhibits, because a list is a self-report:
   **every option of every control that changes what renders** — each control on
   its own, not the cross-product. Seven CPA schemes, three adversaries, five
   signature tactics, both CCA2 schemes, both reduction adversaries, both ends of
-  n, the step and stop buttons, every refusal and every retirement. A state the
+  n, the step and stop buttons, every refusal and every retirement, every
+  adjacent hybrid prefix, executable oracle checks and a fresh reconstruction. A state the
   walk never reaches is outside the set the coverage rules judge, however
   carefully those rules are written;
-- `npm run test:mutations` applies **27 recorded mutations across the 26
+- `npm run test:mutations` applies **35 recorded mutations across the 34
   markers** — `switch-rows` carries two, because a doubled bound and a
   replicated row are different defects — and requires a **kill** for each: the
   unmutated baseline passing in the same run, and the failure being that
@@ -180,7 +194,7 @@ push to `main` included — and the Pages deployment.
 
 ## Performance
 
-The default 200-trial games are intended to complete interactively on a current desktop browser. RSA-2048 key generation happens once per page session and is shared by textbook RSA, OAEP, and PSS. The 5,000-trial cap prevents accidental unbounded work; runtime still varies by browser, CPU, selected primitive, and query count.
+The default 200-trial games are intended to complete interactively on a current desktop browser. RSA-2048 key generation happens once per page session and is shared by textbook RSA, OAEP, and PSS. The 5,000-trial cap prevents accidental unbounded work. The hard-core lesson separately caps dimensions, subset XORs and reconstruction votes, then reports any retry work. Runtime still varies by browser, CPU, selected primitive, and query count.
 
 ## Primary Sources
 
@@ -190,6 +204,7 @@ The default 200-trial games are intended to complete interactively on a current 
 - Shafi Goldwasser, Silvio Micali, and Ronald Rivest, [“A Digital Signature Scheme Secure Against Adaptive Chosen-Message Attacks”](https://doi.org/10.1137/0217017), SIAM Journal on Computing 17(2), 1988.
 - Mihir Bellare and Phillip Rogaway, [“The Security of Triple Encryption and a Framework for Code-Based Game-Playing Proofs”](https://eprint.iacr.org/2004/331), EUROCRYPT 2006.
 - Victor Shoup, [“Sequences of Games: A Tool for Taming Complexity in Security Proofs”](https://eprint.iacr.org/2004/332), 2004.
+- Oded Goldreich and Leonid Levin, [“A Hard-Core Predicate for all One-Way Functions”](https://www.wisdom.weizmann.ac.il/~/oded/gl.html), STOC 1989.
 - [FIPS 197: Advanced Encryption Standard](https://csrc.nist.gov/pubs/fips/197/final), [RFC 6979](https://www.rfc-editor.org/rfc/rfc6979), and [RFC 8032](https://www.rfc-editor.org/rfc/rfc8032).
 
 ---

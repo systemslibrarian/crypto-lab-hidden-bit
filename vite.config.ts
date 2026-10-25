@@ -12,6 +12,7 @@ export default defineConfig({
         'src/schemes/**/*.ts',
         'src/adversaries/**/*.ts',
         'src/prf/**/*.ts',
+        'src/proofs/**/*.ts',
         'src/reduction/**/*.ts',
         'src/kats.ts',
       ],

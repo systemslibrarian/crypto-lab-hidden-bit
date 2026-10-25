@@ -183,4 +183,22 @@ export async function driveAllStates(page: Page, viewport: string): Promise<void
   await scan(page, `${viewport} / multi-key sampled game`);
   await page.locator('#multi-users').fill('0');
   await scan(page, `${viewport} / multi-key invalid input`);
+
+  await openTab(page, 'Hybrid proof');
+  await expect(page.locator('#hardcore-run')).toBeEnabled();
+  for (let hop = 0; hop < 5; hop += 1) await page.locator('#hybrid-next').click();
+  await expect(page.locator('#hybrid-ledger [data-field="hybrid-through"]')).toHaveText('H5');
+  await page.locator('#hybrid-oracle-run').click();
+  await expect(page.locator('#hybrid-oracles [data-field="oracle-summary"]')).toContainText('All three oracles');
+  await scan(page, `${viewport} / complete adjacent-hybrid and oracle checks`);
+
+  await page.locator('#hardcore-run').click();
+  await expect(page.locator('#hardcore-status')).toContainText('Fresh uniform reconstruction run', { timeout: 90_000 });
+  await page.locator('#panel-hybrid-proof .guard-rails > summary').click();
+  await page.locator('#panel-hybrid-proof .sources > summary').click();
+  await scan(page, `${viewport} / hard-core reconstruction and boundaries`);
+
+  await page.locator('#hybrid-queries').fill('1');
+  await expect(page.locator('#hybrid-proof-verdict')).toContainText('INPUT REFUSED');
+  await scan(page, `${viewport} / hybrid invalid query count`);
 }

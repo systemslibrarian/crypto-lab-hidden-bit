@@ -11,6 +11,7 @@ import { initForgery } from './ui/forgery';
 import { initGgm } from './ui/ggm';
 import { hydrateIcons } from './ui/icons';
 import { initReduction } from './ui/reduction';
+import { initHybridProof } from './ui/hybridProof';
 import { initMultiKey } from './ui/multiKey';
 import { initSwitching } from './ui/switching';
 
@@ -62,3 +63,4 @@ initSwitching();
 initGgm();
 initReduction();
 initMultiKey();
+void initHybridProof();
