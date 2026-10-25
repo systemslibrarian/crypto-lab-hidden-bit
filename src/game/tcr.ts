@@ -270,6 +270,7 @@ export interface CrGameRecord {
 export const PLANTED_A = 0xf0;
 export const PLANTED_B = 0x0f;
 
+/** The strategy-level partner search: first x-prime hashing equal under this key. */
 function firstPartner(family: TcrFamilyId, key: number, x: number): number | null {
   const targetHash = familyHash(family, key, x);
   for (let x2 = 0; x2 < 256; x2 += 1) {
@@ -457,21 +458,41 @@ export interface ExactAnalysis {
   readonly crWinChance: number;
   /** Second-preimage win chance over uniform key and challenge (exact). */
   readonly sprWinChance: number;
-  /** The keys that beat a given committed target, worst-case target listed. */
+  /**
+   * Inner points with a collision partner. By the mask symmetry these are in
+   * one-to-one correspondence with the keys beating any committed target
+   * (s = x ⊕ u), so the count is rendered as "keys beating the worst target".
+   */
   readonly worstTargetKeys: readonly number[];
 }
 
+/**
+ * The input mask makes the target-before-key and second-preimage chances one
+ * pass each — by symmetry, not by sampling:
+ *
+ *   A committed target x is beaten by key s exactly when u = x ⊕ s has a
+ *   collision partner under the inner h. As s runs over all 256 keys, u runs
+ *   over all 256 inner points, so EVERY target is beaten by the same number of
+ *   keys: the number of inner points that belong to some colliding pair of h.
+ *
+ *   The second-preimage game hands the adversary (s, x) with the key in hand;
+ *   u = x ⊕ s is uniform there too, so its winnable count is the same number.
+ *   The two games coincide on every family of the form h(x ⊕ s); they remain
+ *   different definitions, because the order of play differs and TCR lets the
+ *   adversary choose the target.
+ */
 export function exactAnalysis(family: TcrFamilyId, strategy: TcrStrategyId): ExactAnalysis {
-  // Target-before-key: for each committed target, the keys for which the
-  // strategy's partner search finds a colliding partner. Worst target first.
-  let worstKeys: number[] = [];
-  for (let x = 0; x < 256; x += 1) {
-    const keys: number[] = [];
-    for (let s = 0; s < 256; s += 1) {
-      const partner = firstPartner(family, s, x);
-      if (partner !== null) keys.push(s);
+  // Inner points with a collision partner — the mask-symmetric winnable set.
+  const worstKeys: number[] = [];
+  for (let u = 0; u < 256; u += 1) {
+    const h = familyInner(family);
+    const digest = h(u);
+    for (let other = 0; other < 256; other += 1) {
+      if (other !== u && h(other) === digest) {
+        worstKeys.push(u);
+        break;
+      }
     }
-    if (keys.length > worstKeys.length) worstKeys = keys;
   }
   const tcrChance = worstKeys.length / 256;
 
@@ -483,18 +504,10 @@ export function exactAnalysis(family: TcrFamilyId, strategy: TcrStrategyId): Exa
   }
   const crChance = crWins / 256;
 
-  // Second preimage: uniform key and challenge; the adversary only supplies
-  // the partner, with the key already in hand.
-  let sprWins = 0;
-  for (let s = 0; s < 256; s += 1) {
-    for (let x = 0; x < 256; x += 1) {
-      if (firstPartner(family, s, x) !== null) sprWins += 1;
-    }
-  }
   return {
     tcrWorstTargetWinChance: tcrChance,
     crWinChance: crChance,
-    sprWinChance: sprWins / (256 * 256),
+    sprWinChance: tcrChance,
     worstTargetKeys: worstKeys,
   };
 }

@@ -261,6 +261,47 @@ describe('exact analysis by exhaustion', () => {
       expect(analysis.crWinChance).toBe(strategy === 'scan-pairs' ? 1 : 0);
     }
   });
+
+  it('verifies the mask symmetry against brute force on a spread of targets', () => {
+    // exactAnalysis computes one number for every target at once, on the
+    // strength of the symmetry u = x ⊕ s. This test does NOT trust it: it
+    // brute-forces the winnable-key count for sixteen spread targets, directly
+    // from the family definition, and requires the module's number to agree —
+    // and to agree with EVERY target, not just the ones a strategy commits.
+    const winnableKeys = (family: TcrFamilyId, target: number): number => {
+      let count = 0;
+      for (let s = 0; s < 256; s += 1) {
+        const digest = familyHash(family, s, target);
+        for (let x2 = 0; x2 < 256; x2 += 1) {
+          if (x2 !== target && familyHash(family, s, x2) === digest) {
+            count += 1;
+            break;
+          }
+        }
+      }
+      return count;
+    };
+    for (const family of [planted, fold] as const) {
+      const analysis = exactAnalysis(family, 'scan-pairs');
+      for (let step = 0; step < 256; step += 16) {
+        const target = (step * 7 + 13) & 0xff;
+        expect(winnableKeys(family, target)).toBe(analysis.worstTargetKeys.length);
+      }
+    }
+  });
+
+  it('brute-forces the winnable keys of the scan strategy’s committed target', () => {
+    // The scan commits 0x00 target-first; its winnable keys are the keys s for
+    // which some partner of 0x00 exists — measured by playing every key.
+    for (const family of [planted, fold] as const) {
+      const wins = new Set<number>();
+      for (let s = 0; s < 256; s += 1) {
+        if (playTcrGame(family, 'scan-pairs', () => s).won) wins.add(s);
+      }
+      expect(wins.size).toBe(exactAnalysis(family, 'scan-pairs').worstTargetKeys.length);
+      expect(wins.size).toBe(family === planted ? 2 : 256);
+    }
+  });
 });
 
 describe('the win-rate interval', () => {
