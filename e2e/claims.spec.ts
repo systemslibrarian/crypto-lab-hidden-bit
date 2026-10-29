@@ -299,7 +299,7 @@ test('GGM tree follows independent AES branches and exposes the repeated-seed fa
   );
   const repeatedStates = await page.locator('#ggm-repeat-tree [data-ggm-path]').evaluateAll((nodes) =>
     nodes.filter((node) => (node as HTMLElement).dataset.ggmPath?.length === 3)
-      .map((node) => node.getAttribute('aria-label')!.match(/state ([0-9a-f]{32})/)![1]),
+      .map((node) => node.getAttribute('aria-label')!.match(/state 0x([0-9a-f]{32})/)![1]),
   );
   expect(repeatedStates).toEqual(Array(8).fill(hex));
 

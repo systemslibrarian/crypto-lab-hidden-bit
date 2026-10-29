@@ -13,7 +13,7 @@ function treeMarkup(root: Uint8Array, mode: GeneratorMode, selected: string): st
         const selectedRoute = selected.startsWith(node.path);
         return `<button type="button" class="ggm-node" data-ggm-path="${node.path}"
           data-route="${selectedRoute}" aria-pressed="${selectedRoute}"
-          aria-label="${mode === 'aes' ? 'AES' : 'Repeated'} tree path ${path}, ${node.path.length === GGM_DEMO_DEPTH ? `leaf bit ${firstBit(node.seed)}, ` : ''}state ${hex}">
+          aria-label="${path}0x${hex.slice(0, 8)}\u2026${node.path.length === GGM_DEMO_DEPTH ? `leaf bit: ${firstBit(node.seed)}` : ''}: ${mode === 'aes' ? 'AES' : 'Repeated'} tree path ${path}, state 0x${hex}">
           <strong>${path}</strong><small>0x${hex.slice(0, 8)}…</small>
           ${node.path.length === GGM_DEMO_DEPTH ? `<em>leaf bit: ${firstBit(node.seed)}</em>` : ''}
         </button>`;
