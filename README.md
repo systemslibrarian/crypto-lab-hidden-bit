@@ -215,13 +215,15 @@ The default 200-trial games are intended to complete interactively on a current 
 ## Primary Sources
 
 - Shafi Goldwasser and Silvio Micali, [“Probabilistic Encryption”](https://doi.org/10.1016/0022-0000(84)90070-9), JCSS 28(2), 1984.
-- Charles Rackoff and Daniel Simon, [“Non-Interactive Zero-Knowledge Proof of Knowledge and Chosen Ciphertext Attack”](https://doi.org/10.1007/3-540-46766-1_1), CRYPTO 1991.
+- Charles Rackoff and Daniel Simon, [“Non-Interactive Zero-Knowledge Proof of Knowledge and Chosen Ciphertext Attack”](https://doi.org/10.1007/3-540-46766-1_35), CRYPTO 1991.
 - Mihir Bellare, Anand Desai, David Pointcheval, and Phillip Rogaway, [“Relations Among Notions of Security for Public-Key Encryption Schemes”](https://www.iacr.org/archive/crypto1998/14620526/14620526.pdf), CRYPTO 1998.
 - Shafi Goldwasser, Silvio Micali, and Ronald Rivest, [“A Digital Signature Scheme Secure Against Adaptive Chosen-Message Attacks”](https://doi.org/10.1137/0217017), SIAM Journal on Computing 17(2), 1988.
 - Mihir Bellare and Phillip Rogaway, [“The Security of Triple Encryption and a Framework for Code-Based Game-Playing Proofs”](https://eprint.iacr.org/2004/331), EUROCRYPT 2006.
 - Victor Shoup, [“Sequences of Games: A Tool for Taming Complexity in Security Proofs”](https://eprint.iacr.org/2004/332), 2004.
 - Oded Goldreich and Leonid Levin, [“A Hard-Core Predicate for all One-Way Functions”](https://www.wisdom.weizmann.ac.il/~/oded/gl.html), STOC 1989.
 - [FIPS 197: Advanced Encryption Standard](https://csrc.nist.gov/pubs/fips/197/final), [RFC 6979](https://www.rfc-editor.org/rfc/rfc6979), and [RFC 8032](https://www.rfc-editor.org/rfc/rfc8032).
+
+**Sources reviewed 15 November 2026:** every citation link in this README was resolved and its title and authors checked against the publisher's record. One DOI was corrected: the Rackoff–Simon link was `10.1007/3-540-46766-1_1`, which is the first paper of the same volume — Abadi, Burrows, Lampson & Plotkin, “A Calculus for Access Control in Distributed Systems” (pp. 1–23). Rackoff–Simon is `_35`, pp. 433–444 of *Advances in Cryptology — CRYPTO '91*, LNCS 576, as that chapter's own title page states. The citation text was already right. The two `iacr.org/archive` PDF links (Bellare–Desai–Pointcheval–Rogaway above, and Rogaway–Shrimpton under *Target-collision sources and limits*) could not be checked: iacr.org refuses automated readers, so they were left as they are and still want one manual click. If the first turns out to be the wrong file, the paper's DOI is `10.1007/BFb0055718` (CRYPTO '98, pp. 26–45); for the second it is `10.1007/978-3-540-25937-4_24` (FSE 2004, pp. 371–388, matching the page range cited).
 
 ---
 
