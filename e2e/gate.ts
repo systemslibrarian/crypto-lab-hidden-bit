@@ -1,6 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page } from '@playwright/test';
 import { auditContrast, formatContrastFailures } from './contrast';
+import { auditControlNames, formatControlNameFailures } from './control-names';
 import { auditNonText, formatNonTextFailures } from './nontext';
 import { NONTEXT_BASELINE } from './nontext-baseline';
 
@@ -110,6 +111,9 @@ export async function scan(page: Page, label: string): Promise<void> {
     .map((result) => ({ id: result.id, nodes: result.nodes.map((node) => node.target.join(' ')).slice(0, 8) }));
   expect(incomplete, `unexplained axe incomplete results in ${label}`).toEqual([]);
   expect(formatContrastFailures(await auditContrast(page)), `measured text contrast in ${label}`).toEqual([]);
+  // axe's `label` rule accepts a bare `placeholder` as an accessible name, so a
+  // deleted label can leave this gate green. See `control-names.ts`.
+  expect(formatControlNameFailures(await auditControlNames(page)), `form controls named only by placeholder/title in ${label}`).toEqual([]);
   expect(formatNonTextFailures(await auditNonText(page)), `measured non-text contrast in ${label}`).toEqual([]);
   expect(Object.keys(NONTEXT_BASELINE), 'non-text baseline is a ratchet, not an exemption').toEqual([]);
   await expectNoHorizontalOverflow(page, label);
