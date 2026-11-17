@@ -187,7 +187,7 @@
         <div class="scope-columns">
           <div>
             <h3>What is real</h3>
-            <p>AES CBC/CTR/GCM and RSA OAEP/PSS use WebCrypto. AES-ECB, ristretto255 ElGamal, secp256k1 ECDSA, and Ed25519 use audited Noble packages. In the hidden-bit guessing exhibits, the challenger bit always comes from <code>crypto.getRandomValues</code>; the target-collision search game has no challenger bit.</p>
+            <p>AES CBC/CTR/GCM and RSA OAEP/PSS use WebCrypto. AES-ECB, ristretto255 ElGamal, secp256k1 ECDSA, and Ed25519 use Noble packages, pinned at <code>^2.4.0</code>. “Audited” is narrower than it sounds: @noble/curves records its latest independent audit at version 2.3.0 (Trail of Bits, August 2026) and @noble/ciphers at version 1.0.0 (cure53, September 2024), so neither audit covers the version shipped here — which is why every one of these primitives is pinned to published vectors instead. In the hidden-bit guessing exhibits, the challenger bit always comes from <code>crypto.getRandomValues</code>; the target-collision search game has no challenger bit.</p>
           </div>
           <div>
             <h3>What is idealized</h3>
