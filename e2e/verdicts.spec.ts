@@ -1140,6 +1140,14 @@ test('multi-key budget claim matches the independent Q epsilon ceiling', async (
   }
   await page.locator('#multi-run').click();
   await expect(page.locator('#multi-status')).toContainText('Fresh toy game run');
+  await page.locator('#multi-chance').fill('');
+  await page.locator('#multi-run').click();
+  await expect(page.locator('#multi-budget')).toHaveAttribute('data-value', '');
+  await expect(page.locator('#multi-budget')).not.toContainText('One game:');
+  await page.locator('#multi-chance').fill('0');
+  await page.locator('#multi-run').click();
+  await expect(page.locator('#multi-budget')).toHaveAttribute('data-value', '0');
+  await expect(page.locator('#multi-budget')).toContainText('One game:');
 });
 
 /* ── Exhibit 08: target collision resistance (S09) ────────────────────────── */

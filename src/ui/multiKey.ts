@@ -29,13 +29,14 @@ export function initMultiKey(): void {
   const status = query<HTMLElement>('#multi-status', panel);
   const budget = query<HTMLElement>('#multi-budget', panel);
 
-  const compute = () => multiKeyBudget({
-    users: Number(users.value), queriesPerUser: Number(queries.value), epsilon: Number(chance.value) / 100,
-  });
   const paint = (fresh = false): void => {
     try {
-      const config = { users: Number(users.value), queriesPerUser: Number(queries.value), epsilon: Number(chance.value) / 100 };
-      const result = compute();
+      const config = {
+        users: users.valueAsNumber,
+        queriesPerUser: queries.valueAsNumber,
+        epsilon: chance.valueAsNumber / 100,
+      };
+      const result = multiKeyBudget(config);
       budget.dataset.value = String(result.unionBound);
       budget.innerHTML = `<h3>Exact model and a conservative ceiling</h3>
         <dl class="value-list"><div class="value-row"><dt>Total opportunities Q</dt><dd>${result.totalQueries}</dd></div>
